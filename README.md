@@ -1,4 +1,4 @@
-## Dockerfile
+## Docker集成
 - **shadowsocks-libev 版本: 3.2.4**
 - **kcptun 版本: 20190109**
 - **udpspeederv2 版本: 20190121.0**
@@ -13,7 +13,7 @@
 ### 打开姿势
 
 ``` sh
-docker run -dt --name ss -p 6443:6443 shadowsocks -S "-s 0.0.0.0 -p 6443 -m chacha20 -k test123"
+docker run -dt --name ss -p 6443:6443 sola97/shadowsocks -S "-s 0.0.0.0 -p 6443 -m aes-256-cfb -k passwd"
 ```
 
 ### 支持选项
@@ -52,20 +52,20 @@ docker run -dt \
 -p 6443:6443/udp \
 -p 6500:6500/udp \
 -p 6501:6501/udp \
- shadowsocks \
+ sola97/shadowsocks \
 -s "ss-server" \
--S "-s 0.0.0.0 -p 6443 -m chacha20 -k test123 -u --fast-open" \
+-S "-s 0.0.0.0 -p 6443 -m aes-256-cfb -k passwd -u --fast-open" \
 -k "kcpserver" \
 -K "-l 0.0.0.0:6500  -t 127.0.0.1:6443 -mode fast2" \
--u "-s -l0.0.0.0:6501 -r 127.0.0.1:6443  -f20:10 -k test123 "
+-u "-s -l0.0.0.0:6501 -r 127.0.0.1:6443  -f20:10 -k passwd "
 ```
 
 **以上命令相当于执行了**
 
 ``` sh
-ss-server -s 0.0.0.0 -p 6443 -m chacha20 -k test123 -u --fast-open
+ss-server -s 0.0.0.0 -p 6443 -m aes-256-cfb -k passwd -u --fast-open
 kcpserver -l 0.0.0.0:6500  -t 127.0.0.1:6443 -mode fast2
-speederv2 -s -l0.0.0.0:6501 -r 127.0.0.1:6443  -f20:10 -k test123 
+speederv2 -s -l0.0.0.0:6501 -r 127.0.0.1:6443  -f20:10 -k passwd 
 ```
 
 **Client 端**
@@ -78,24 +78,24 @@ docker run -dt \
 -p 1080:1080/udp \
 --restart=always \
 --name ssclient \
-shadowsocks \
+sola97/shadowsocks \
 -s "ss-local" \
--S "-s 127.0.0.1 -p 6500 -b 0.0.0.0 -l 1080 -u -m chacha20 -k test123  --fast-open" \
+-S "-s 127.0.0.1 -p 6500 -b 0.0.0.0 -l 1080 -u -m aes-256-cfb -k passwd  --fast-open" \
 -k "kcpclient"  \
 -K "-l :6500 -r $SS_SERVER_IP:6500 -mode fast2" \
--u "-c -l[::]:6500  -r$SS_SERVER_IP:6501 -f20:10 -k test123" 
+-u "-c -l[::]:6500  -r$SS_SERVER_IP:6501 -f20:10 -k passwd" 
 ```
 
 **以上命令相当于执行了** 
 
 ``` sh
-ss-local -s 127.0.0.1 -p 6500 -b 0.0.0.0 -l 1080 -u -m chacha20 -k test123  --fast-open
+ss-local -s 127.0.0.1 -p 6500 -b 0.0.0.0 -l 1080 -u -m aes-256-cfb -k passwd  --fast-open
 kcpclient -l :6500 -r $SS_SERVER_IP:6500 -mode fast2
-speederv2 -c -l[::]:6500  -r$SS_SERVER_IP:6501 -f20:10 -k test123
+speederv2 -c -l[::]:6500  -r$SS_SERVER_IP:6501 -f20:10 -k passwd
 ```
 
 
-**注意：启用udp2raw时候要指定`docker --cap-add=NET_ADMIN` **
+**注意：启用udp2raw时候要指定**`docker --cap-add=NET_ADMIN`
 
 
 ### 环境变量支持
@@ -117,5 +117,5 @@ speederv2 -c -l[::]:6500  -r$SS_SERVER_IP:6501 -f20:10 -k test123
 **使用时可指定环境变量，如下**
 
 ``` sh
-docker run -dt --name ss -p 6443:6443 -p 6500:6500/udp -e SS_CONFIG="-s 0.0.0.0 -p 6443 -m chacha20-ietf-poly1305 -k test123" -e KCP_MODULE="kcpserver" -e KCP_CONFIG="-t 127.0.0.1:6443 -l :6500 -mode fast2" shadowsocks
+docker run -dt --name ss -p 6443:6443 -p 6500:6500/udp -e SS_CONFIG="-s 0.0.0.0 -p 6443 -m aes-256-cfb -k passwd" -e KCP_MODULE="kcpserver" -e KCP_CONFIG="-t 127.0.0.1:6443 -l :6500 -mode fast2" sola97/shadowsocks
 ```
