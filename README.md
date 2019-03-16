@@ -6,10 +6,6 @@
 
 **基于[mtrid/shadowsocks](https://github.com/mritd/dockerfile/tree/master/shadowsocks)修改**
 
-[同时加速tcp和udp流量](https://github.com/wangyu-/UDPspeeder/wiki/UDPspeeder---kcptun-finalspeed---$$-%E5%90%8C%E6%97%B6%E5%8A%A0%E9%80%9Ftcp%E5%92%8Cudp%E6%B5%81%E9%87%8F)
-
-![](https://github.com/wangyu-/UDPspeeder/raw/master/images/cn/speeder_kcptun.PNG)
-
 ### 打开姿势
 
 ``` sh
@@ -40,7 +36,7 @@ docker run -dt --name ss -p 6443:6443 sola97/shadowsocks -S "-s 0.0.0.0 -p 6443 
 
 
 
-### 命令示例
+### 方案一 SS+KCP+UDPspeeder
 
 **Server 端**
 
@@ -57,7 +53,7 @@ docker run -dt \
 -S "-s 0.0.0.0 -p 6443 -m aes-256-cfb -k passwd -u --fast-open" \
 -k "kcpserver" \
 -K "-l 0.0.0.0:6500  -t 127.0.0.1:6443 -mode fast2" \
--u "-s -l0.0.0.0:6501 -r 127.0.0.1:6443  -f20:10 -k passwd "
+-u "-s -l0.0.0.0:6501 -r 127.0.0.1:6443  -f1:3,2:4,8:6,20:10 -k passwd "
 ```
 
 **以上命令相当于执行了**
@@ -65,25 +61,25 @@ docker run -dt \
 ``` sh
 ss-server -s 0.0.0.0 -p 6443 -m aes-256-cfb -k passwd -u --fast-open
 kcpserver -l 0.0.0.0:6500  -t 127.0.0.1:6443 -mode fast2
-speederv2 -s -l0.0.0.0:6501 -r 127.0.0.1:6443  -f20:10 -k passwd 
+speederv2 -s -l0.0.0.0:6501 -r 127.0.0.1:6443  -f1:3,2:4,8:6,20:10 -k passwd 
 ```
 
 **Client 端**
 
 ``` sh
 docker run -dt \
+--restart=always \
+--name ssclient \
 -p 6500:6500 \
 -p 6500:6500/udp \
 -p 1080:1080 \
 -p 1080:1080/udp \
---restart=always \
---name ssclient \
 sola97/shadowsocks \
 -s "ss-local" \
 -S "-s 127.0.0.1 -p 6500 -b 0.0.0.0 -l 1080 -u -m aes-256-cfb -k passwd  --fast-open" \
 -k "kcpclient"  \
 -K "-l :6500 -r $SS_SERVER_IP:6500 -mode fast2" \
--u "-c -l[::]:6500  -r$SS_SERVER_IP:6501 -f20:10 -k passwd" 
+-u "-c -l[::]:6500  -r$SS_SERVER_IP:6501 -f1:3,2:4,8:6,20:10 -k passwd" 
 ```
 
 **以上命令相当于执行了** 
@@ -91,9 +87,73 @@ sola97/shadowsocks \
 ``` sh
 ss-local -s 127.0.0.1 -p 6500 -b 0.0.0.0 -l 1080 -u -m aes-256-cfb -k passwd  --fast-open
 kcpclient -l :6500 -r $SS_SERVER_IP:6500 -mode fast2
-speederv2 -c -l[::]:6500  -r$SS_SERVER_IP:6501 -f20:10 -k passwd
+speederv2 -c -l[::]:6500  -r$SS_SERVER_IP:6501 -f1:3,2:4,8:6,20:10 -k passwd
 ```
 
+
+### 方案二 SS+KCP+UDPspeeder+Udp2raw
+
+**Server 端**
+
+``` sh
+docker run -dt \
+--restart=always \
+--cap-add=NET_ADMIN \
+--name ssserver \
+-p 6443:6443 \
+-p 6443:6443/udp \
+-p 4096:4096 \
+-p 4097:4097 \
+ sola97/shadowsocks \
+-s "ss-server" \
+-S "-s 0.0.0.0 -p 6443 -m aes-256-cfb -k passwd -u --fast-open" \
+-k "kcpserver" \
+-K "-l 0.0.0.0:6500  -t 127.0.0.1:6443 -mode fast2" \
+-u "-s -l0.0.0.0:6501 -r 127.0.0.1:6443  -f1:3,2:4,8:6,20:10 -k passwd " \
+-t "-s -l0.0.0.0:4096 -r 127.0.0.1:6500    -k passwd --raw-mode faketcp -a" \
+-T "-s -l0.0.0.0:4097 -r 127.0.0.1:6501    -k passwd --raw-mode faketcp -a" 
+```
+
+**以上命令相当于执行了**
+
+``` sh
+ss-server -s 0.0.0.0 -p 6443 -m aes-256-cfb -k passwd -u --fast-open
+kcpserver -l 0.0.0.0:6500  -t 127.0.0.1:6443 -mode fast2
+speederv2 -s -l0.0.0.0:6501 -r 127.0.0.1:6443  -f1:3,2:4,8:6,20:10 -k passwd 
+udp2raw -s -l0.0.0.0:4096 -r 127.0.0.1:6500    -k passwd --raw-mode faketcp -a
+udp2raw -s -l0.0.0.0:4097 -r 127.0.0.1:6501    -k passwd --raw-mode faketcp -a
+```
+
+**Client 端**
+
+``` sh
+docker run -dt \
+--cap-add=NET_ADMIN \
+--restart=always \
+--name ssclient \
+-p 6500:6500 \
+-p 6500:6500/udp \
+-p 1080:1080 \
+-p 1080:1080/udp \
+sola97/shadowsocks \
+-t "-c -l0.0.0.0:3333  -r$SS_SERVER_IP:4096  -k passwd --raw-mode faketcp -a" \
+-T "-c -l0.0.0.0:3334  -r$SS_SERVER_IP:4097  -k passwd --raw-mode faketcp -a" \
+-k "kcpclient"  \
+-K "-l :6500 -r 127.0.0.1:3333 -mode fast2" \
+-u "-c -l[::]:6500  -r127.0.0.1:3334 -f1:3,2:4,8:6,20:10 -k passwd" \
+-s "ss-local" \
+-S "-s 127.0.0.1 -p 6500 -b 0.0.0.0 -l 1080 -u -m aes-256-cfb -k passwd  --fast-open"
+```
+
+**以上命令相当于执行了** 
+
+``` sh
+udp2raw -c -l0.0.0.0:3333  -r$SS_SERVER_IP:4096  -k passwd --raw-mode faketcp -a
+udp2raw -c -l0.0.0.0:3334  -r$SS_SERVER_IP:4096  -k passwd --raw-mode faketcp -a
+kcpclient -l :6500 -r 127.0.0.1:3333 -mode fast2
+speederv2 -c -l[::]:6500  -r127.0.0.1:3334 -f1:3,2:4,8:6,20:10 -k passwd
+ss-local -s 127.0.0.1 -p 6500 -b 0.0.0.0 -l 1080 -u -m aes-256-cfb -k passwd  --fast-open
+```
 
 **注意：启用udp2raw时候要指定**`docker --cap-add=NET_ADMIN`
 
