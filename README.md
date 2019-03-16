@@ -110,8 +110,8 @@ docker run -dt \
 -k "kcpserver" \
 -K "-l 0.0.0.0:6500  -t 127.0.0.1:6443 -mode fast2" \
 -u "-s -l0.0.0.0:6501 -r 127.0.0.1:6443  -f1:3,2:4,8:6,20:10 -k passwd " \
--t "-s -l0.0.0.0:4096 -r 127.0.0.1:6500    -k passwd --raw-mode faketcp -a" \
--T "-s -l0.0.0.0:4097 -r 127.0.0.1:6501    -k passwd --raw-mode faketcp -a" 
+-t "-s -l0.0.0.0:4096 -r 127.0.0.1:6500    -k passwd --cipher-mode xor --auth-mode simple --raw-mode faketcp -a" \
+-T "-s -l0.0.0.0:4097 -r 127.0.0.1:6501    -k passwd --cipher-mode xor --auth-mode simple --raw-mode faketcp -a" 
 ```
 
 **以上命令相当于执行了**
@@ -120,8 +120,8 @@ docker run -dt \
 ss-server -s 0.0.0.0 -p 6443 -m aes-256-cfb -k passwd -u --fast-open
 kcpserver -l 0.0.0.0:6500  -t 127.0.0.1:6443 -mode fast2
 speederv2 -s -l0.0.0.0:6501 -r 127.0.0.1:6443  -f1:3,2:4,8:6,20:10 -k passwd 
-udp2raw -s -l0.0.0.0:4096 -r 127.0.0.1:6500    -k passwd --raw-mode faketcp -a
-udp2raw -s -l0.0.0.0:4097 -r 127.0.0.1:6501    -k passwd --raw-mode faketcp -a
+udp2raw -s -l0.0.0.0:4096 -r 127.0.0.1:6500    -k passwd --cipher-mode xor --auth-mode simple --raw-mode faketcp -a
+udp2raw -s -l0.0.0.0:4097 -r 127.0.0.1:6501    -k passwd --cipher-mode xor --auth-mode simple --raw-mode faketcp -a
 ```
 
 **Client 端**
@@ -136,8 +136,8 @@ docker run -dt \
 -p 1080:1080 \
 -p 1080:1080/udp \
 sola97/shadowsocks \
--t "-c -l0.0.0.0:3333  -r$SS_SERVER_IP:4096  -k passwd --raw-mode faketcp -a" \
--T "-c -l0.0.0.0:3334  -r$SS_SERVER_IP:4097  -k passwd --raw-mode faketcp -a" \
+-t "-c -l0.0.0.0:3333  -r$SS_SERVER_IP:4096  -k passwd --cipher-mode xor --auth-mode simple --raw-mode faketcp -a" \
+-T "-c -l0.0.0.0:3334  -r$SS_SERVER_IP:4097  -k passwd --cipher-mode xor --auth-mode simple --raw-mode faketcp -a" \
 -k "kcpclient"  \
 -K "-l :6500 -r 127.0.0.1:3333 -mode fast2" \
 -u "-c -l[::]:6500  -r127.0.0.1:3334 -f1:3,2:4,8:6,20:10 -k passwd" \
@@ -148,8 +148,8 @@ sola97/shadowsocks \
 **以上命令相当于执行了** 
 
 ``` sh
-udp2raw -c -l0.0.0.0:3333  -r$SS_SERVER_IP:4096  -k passwd --raw-mode faketcp -a
-udp2raw -c -l0.0.0.0:3334  -r$SS_SERVER_IP:4096  -k passwd --raw-mode faketcp -a
+udp2raw -c -l0.0.0.0:3333  -r$SS_SERVER_IP:4096  -k passwd --cipher-mode xor --auth-mode simple --raw-mode faketcp -a
+udp2raw -c -l0.0.0.0:3334  -r$SS_SERVER_IP:4096  -k passwd --cipher-mode xor --auth-mode simple --raw-mode faketcp -a
 kcpclient -l :6500 -r 127.0.0.1:3333 -mode fast2
 speederv2 -c -l[::]:6500  -r127.0.0.1:3334 -f1:3,2:4,8:6,20:10 -k passwd
 ss-local -s 127.0.0.1 -p 6500 -b 0.0.0.0 -l 1080 -u -m aes-256-cfb -k passwd  --fast-open
