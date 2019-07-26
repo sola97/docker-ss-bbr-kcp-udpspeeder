@@ -7,10 +7,12 @@
 **基于[mtrid/shadowsocks](https://github.com/mritd/dockerfile/tree/master/shadowsocks)修改**
 
 ### 打开姿势
-
-``` sh
-docker run -dt --name ss -p 6443:6443 sola97/shadowsocks -S "-s 0.0.0.0 -p 6443 -m aes-256-cfb -k passwd"
-```
+写了个Python脚本方便生成命令
+1. 克隆本项目
+2. 修改`generate.py`文件中的默认密码
+2. `python3 generate.py`运行，要求python3.6+
+3. 输入IP和端口后得到生成的客户端和服务端命令
+4. 手动粘贴运行
 
 ### 支持选项
 
