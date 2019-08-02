@@ -1,13 +1,12 @@
 ## Docker集成
-- **shadowsocks-libev 版本: 3.2.4**
-- **kcptun 版本: 20190109**
+- **shadowsocks-libev 版本: 3.2.5**
+- **kcptun 版本: 20190611**
 - **udpspeederv2 版本: 20190121.0**
 - **udp2raw 版本: 20181113.0**
 
 **基于[mtrid/shadowsocks](https://github.com/mritd/dockerfile/tree/master/shadowsocks)修改**
 
 ### 打开姿势
-写了个Python脚本方便生成命令
 1. 克隆本项目
 2. 修改`generate.py`文件中的默认密码
 2. `python3 generate.py`运行，要求python3.6+
@@ -20,6 +19,7 @@
 - `-S` : shadowsocks-libev 参数字符串
 - `-k` : 指定 kcptun 命令，默认为 `kcpserver` 
 - `-K` : kcptun 参数字符串
+- `-u` : udpspeederv2 的参数字符串
 - `-t` : udp2raw 参数字符串
 - `-T` : udp2raw 参数字符串
 - `-g` : 使用 `/dev/urandom` 来生成随机数
@@ -30,8 +30,9 @@
 - `-S` : 参数后指定一个 shadowsocks-libev 的参数字符串，所有参数将被拼接到 `ss-server` 后
 - `-k` : 参数后指定一个 kcptun 命令，如 kcpclient，不写默认为 kcpserver；该参数用于 kcptun 在客户端和服务端工作模式间切换，可选项如下: `kcpserver`、`kcpclient`
 - `-K` : 参数后指定一个 kcptun 的参数字符串，所有参数将被拼接到 `kcptun` 后;不写默认为禁用;
-- `-t` : 参数后指定一个 udp2raw 的参数字符串，所有参数将被拼接到 `udpspeederv2` 后;不写默认为禁用;
-- `-T` : 启动第二个 udp2raw 进程的参数字符串;不写默认为禁用;
+- `-u` : 参数后指定一个 udpspeederv2 的参数字符串，所有参数将被拼接到 `udpspeederv2` 后;不写默认为禁用;
+- `-t` : 参数后指定一个 udp2raw 的参数字符串，所有参数将被拼接到 `udp2raw` 后;不写默认为禁用;
+- `-T` : 第二个 udp2raw 进程的参数字符串;同上,不写默认为禁用;
 - `-g` : 修复在 GCE 上可能出现的 `This system doesn't provide enough entropy to quickly generate high-quality random numbers.` 错误
 
 
