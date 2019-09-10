@@ -40,6 +40,11 @@
 
 
 ### 方案一 SS+KCP+UDPspeeder
+**方案说明**  
+
+[UDPspeeder kcptun finalspeed $$ 同时加速tcp和udp流量](https://github.com/wangyu-/UDPspeeder/wiki/UDPspeeder---kcptun-finalspeed---$$-%E5%90%8C%E6%97%B6%E5%8A%A0%E9%80%9Ftcp%E5%92%8Cudp%E6%B5%81%E9%87%8F)
+
+![SS+KCP+UDPspeeder](https://github.com/wangyu-/UDPspeeder/raw/master/images/cn/speeder_kcptun.PNG)
 
 **Server 端**
 
@@ -95,6 +100,12 @@ speederv2 -c -l[::]:6500  -r$SS_SERVER_IP:6501 -f1:3,2:4,8:6,20:10 -k passwd
 
 
 ### 方案二 SS+KCP+UDPspeeder+Udp2raw
+**方案说明** 
+
+在方案一的基础上将两路UDP流量用udp2raw伪装成TCP
+
+kcptun client---->udp2raw client--------------->udp2raw client---->kcptun server  
+UDPspeeder client---->udp2raw client--------------->udp2raw server---->UDPspeeder server
 
 **Server 端**
 
@@ -152,7 +163,7 @@ sola97/shadowsocks \
 
 ``` sh
 udp2raw -c -l0.0.0.0:3333  -r$SS_SERVER_IP:4096  -k passwd --cipher-mode xor --auth-mode simple --raw-mode faketcp -a
-udp2raw -c -l0.0.0.0:3334  -r$SS_SERVER_IP:4096  -k passwd --cipher-mode xor --auth-mode simple --raw-mode faketcp -a
+udp2raw -c -l0.0.0.0:3334  -r$SS_SERVER_IP:4097  -k passwd --cipher-mode xor --auth-mode simple --raw-mode faketcp -a
 kcpclient -l :6500 -r 127.0.0.1:3333 -mode fast2
 speederv2 -c -l[::]:6500  -r127.0.0.1:3334 -f1:3,2:4,8:6,20:10 -k passwd
 ss-local -s 127.0.0.1 -p 6500 -b 0.0.0.0 -l 1080 -u -m aes-256-cfb -k passwd  --fast-open
