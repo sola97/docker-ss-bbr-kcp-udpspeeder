@@ -1,4 +1,7 @@
+
 FROM alpine:3.10 as builder
+
+LABEL maintainer="sola97 <my@sora.vip> "
 
 WORKDIR /
 
@@ -22,9 +25,7 @@ SHELL ["/bin/bash", "-c"]
 
 RUN apk update && \
     apk add --no-cache libstdc++ iptables && \
-    rm -rf /var/cache/apk/* && \
-    adduser -h /tmp -s /sbin/nologin -S -D -H udp2raw && \
-    adduser -h /tmp -s /sbin/nologin -S -D -H udpspeeder
+    rm -rf /var/cache/apk/*
 COPY --from=builder /bin/udp2raw /usr/bin
 COPY --from=builder /bin/speederv2 /usr/bin
 COPY runit /etc/service
