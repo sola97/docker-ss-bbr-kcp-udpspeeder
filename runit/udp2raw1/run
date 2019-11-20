@@ -1,0 +1,12 @@
+#!/bin/bash
+
+exec 2>&1
+
+if [ -n "${UDP2RAW_CONFIG_ONE}" ]; then
+    echo -e "starting first udp2raw... command: ${UDP2RAW_MODULE} ${UDP2RAW_CONFIG_ONE}"
+    exec chpst ${UDP2RAW_MODULE} ${UDP2RAW_CONFIG_ONE}
+else
+    echo "first udp2raw not started."
+    exec sv stop udp2raw1
+    exit 0
+fi

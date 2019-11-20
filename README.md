@@ -1,8 +1,8 @@
 ## Docker集成
-- **shadowsocks-libev 版本: 3.2.5**
-- **kcptun 版本: 20190611**
+- **shadowsocks-libev 版本: 3.3.3**
+- **kcptun 版本: 20190924**
 - **udpspeederv2 版本: 20190121.0**
-- **udp2raw 版本: 20181113.0**
+- **udp2raw 版本: 20190716.test.0**
 
 **基于[mtrid/shadowsocks](https://github.com/mritd/dockerfile/tree/master/shadowsocks)修改**
 
@@ -20,9 +20,8 @@
 - `-k` : 指定 kcptun 命令，默认为 `kcpserver` 
 - `-K` : kcptun 参数字符串
 - `-u` : udpspeederv2 的参数字符串
-- `-t` : udp2raw 参数字符串
-- `-T` : udp2raw 参数字符串
-- `-g` : 使用 `/dev/urandom` 来生成随机数
+- `-t` : first udp2raw 参数字符串
+- `-T` : second udp2raw 参数字符串
 
 ### 选项描述
 
@@ -33,8 +32,6 @@
 - `-u` : 参数后指定一个 udpspeederv2 的参数字符串，所有参数将被拼接到 `udpspeederv2` 后;不写默认为禁用;
 - `-t` : 参数后指定一个 udp2raw 的参数字符串，所有参数将被拼接到 `udp2raw` 后;不写默认为禁用;
 - `-T` : 第二个 udp2raw 进程的参数字符串;同上,不写默认为禁用;
-- `-g` : 修复在 GCE 上可能出现的 `This system doesn't provide enough entropy to quickly generate high-quality random numbers.` 错误
-
 
 
 
@@ -104,7 +101,7 @@ speederv2 -c -l[::]:6500  -r$SS_SERVER_IP:6501 -f1:3,2:4,8:6,20:10 -k passwd
 
 在方案一的基础上将两路UDP流量用udp2raw伪装成TCP
 
-kcptun client---->udp2raw client--------------->udp2raw client---->kcptun server  
+kcptun client---->udp2raw client--------------->udp2raw server---->kcptun server  
 UDPspeeder client---->udp2raw client--------------->udp2raw server---->UDPspeeder server
 
 **Server 端**
@@ -184,8 +181,6 @@ ss-local -s 127.0.0.1 -p 6500 -b 0.0.0.0 -l 1080 -u -m aes-256-cfb -k passwd  --
 |UDPSPEEDER_CONFIG|udpspeederv2 参数字符串|所有字符串内内容应当为 udpspeederv2 支持的选项参数,为空时不启动
 |UDP2RAW_CONFIG_ONE|第一个 udp2raw 进程参数字符串|所有字符串内内容应当为 udp2raw 支持的选项参数,为空时不启动
 |UDP2RAW_CONFIG_TWO|第二个 udp2raw 进程参数字符串|所有字符串内内容应当为 udp2raw 支持的选项参数,为空时不启动
-|RNGD_FLAG|是否使用 `/dev/urandom` 生成随机数|可选参数为 true 和 false，默认为 fasle 不使用|
-
 
 
 **使用时可指定环境变量，如下**

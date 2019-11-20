@@ -1,0 +1,12 @@
+#!/bin/bash
+
+exec 2>&1
+
+if [ -n "${UDPSPEEDER_CONFIG}" ]; then
+    echo -e "starting UDPspeeder...  command: ${UDPSPEEDER_MODULE} ${UDPSPEEDER_CONFIG}"
+    exec chpst ${UDPSPEEDER_MODULE} ${UDPSPEEDER_CONFIG}
+else
+    echo "UDPspeeder not started."
+    exec sv stop udpspeeder
+    exit 0
+fi

@@ -1,0 +1,18 @@
+#!/bin/bash
+
+exec 2>&1
+
+if [ -n "${KCP_CONFIG}" ]; then
+
+    if [ -z "${KCP_MODULE}" ]; then
+        echo "Warning: KCP_MODULE is empty, default to kcpserver!"
+        KCP_MODULE="kcpserver"
+    fi
+    
+    echo -e "starting Kcptun...  command: ${KCP_MODULE} ${KCP_CONFIG}"
+    exec chpst -u kcptun ${KCP_MODULE} ${KCP_CONFIG}
+else
+    echo "Kcptun not started."
+    exec sv stop Kcptun
+    exit 0
+fi
