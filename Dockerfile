@@ -19,7 +19,7 @@ RUN  apk update && \
 
 
 
-FROM mritd/shadowsocks:3.3.3-20191101
+FROM mritd/shadowsocks:3.3.3-20191127
 
 SHELL ["/bin/bash", "-c"]
 

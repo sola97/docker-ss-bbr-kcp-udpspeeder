@@ -13,6 +13,6 @@ if [ -n "${KCP_CONFIG}" ]; then
     exec chpst -u kcptun ${KCP_MODULE} ${KCP_CONFIG}
 else
     echo "Kcptun not started."
-    exec sv stop Kcptun
+    exec sv stop kcptun
     exit 0
 fi

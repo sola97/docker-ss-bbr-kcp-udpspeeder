@@ -8,7 +8,6 @@
 
 ### 打开姿势
 1. 克隆本项目
-2. 修改`generate.py`文件中的默认密码
 2. `python3 generate.py`运行，要求python3.6+
 3. 输入IP和端口后得到生成的客户端和服务端命令
 4. 手动粘贴运行
@@ -17,7 +16,7 @@
 
 - `-s` : 指定 shadowsocks 命令，默认为 `ss-server`
 - `-S` : shadowsocks-libev 参数字符串
-- `-k` : 指定 kcptun 命令，默认为 `kcpserver` 
+- `-k` : 指定 kcptun 命令，默认为 `kcpserver`
 - `-K` : kcptun 参数字符串
 - `-u` : udpspeederv2 的参数字符串
 - `-t` : first udp2raw 参数字符串
@@ -188,3 +187,11 @@ ss-local -s 127.0.0.1 -p 6500 -b 0.0.0.0 -l 1080 -u -m aes-256-cfb -k passwd  --
 ``` sh
 docker run -dt --name ss -p 6443:6443 -p 6500:6500/udp -e SS_CONFIG="-s 0.0.0.0 -p 6443 -m aes-256-cfb -k passwd" -e KCP_MODULE="kcpserver" -e KCP_CONFIG="-t 127.0.0.1:6443 -l :6500 -mode fast2" sola97/shadowsocks
 ```
+
+
+
+**更新日志**
+
+- 2019-12-31 基于mritd/shadowsocks:3.3.3-20191127
+
+更新 generate.py，添加用于计算丢包率的脚本
