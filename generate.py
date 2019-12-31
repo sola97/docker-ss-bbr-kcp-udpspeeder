@@ -89,6 +89,7 @@ def ss_kcptun_udpspeeder(server_num=0, client_offset=0,suffix=""):
     print(f"服务端原生SS端口：{server_ss_port+server_num}")
     print(f"客户端本地映射SS端口：{client_ss_port+client_offset}\n"
           f"SOCKS5端口：{client_socks5_port+client_offset}")
+    print("密码为："+PASSWD) 
     print("\n")
 
 def ss_kcptun_udpspeeder_dual_udp2raw(server_num=0, client_offset=0, suffix=""):
@@ -134,6 +135,7 @@ def ss_kcptun_udpspeeder_dual_udp2raw(server_num=0, client_offset=0, suffix=""):
     print(f"服务端原生SS端口：{server_ss_port+server_num}")
     print(f"客户端本地映射SS端口：{client_ss_port+client_offset}\n"
           f"SOCKS5端口：{client_socks5_port+client_offset}")
+    print("密码为："+PASSWD) 
     print("\n")
 
 
@@ -180,6 +182,7 @@ def ss_kcptun_udpspeeder_udp2raw(server_num=0, client_offset=0,suffix=""):
     print(f"服务端原生SS端口：{server_ss_port+server_num}")
     print(f"客户端本地映射SS端口：{client_ss_port+client_offset}\n"
           f"SOCKS5端口：{client_socks5_port+client_offset}")
+    print("密码为："+PASSWD)          
     print("\n")
 
 
@@ -208,10 +211,12 @@ if __name__ == '__main__':
 
 
     try:
+        print("正在获取服务器IP的所在地...")
         with request.urlopen(f"http://ip-api.com/json/{server_ip}?lang=US-en") as f:
             data = f.read().decode('utf-8')
             client_name = "ss_"+str(json.loads(data)['countryCode']).lower()+"_"+str(json.loads(data)['region']).lower()
     except:
+        print("获取失败")
         pass
     cname_input=input(f"请输入客户端容器名(默认为{client_name}，回车保持默认)\n：")
     if cname_input:
@@ -223,18 +228,23 @@ if __name__ == '__main__':
     if re.match("^\d+$",cl_offset):
         client_offset=int(cl_offset)
     print(f"客户端SOCKS5端口为：{client_socks5_port+client_offset}")
-
+    
 
     while True:
         print("请选择kcptun的参数")
-        print("[0]."+get_tcp_param(0)["KCP_SERVER_PARAM"]+"   低丢包率下使用")
+        print("[0]."+get_tcp_param(0)["KCP_SERVER_PARAM"]+"   低丢包率下使用 [默认]")
         print("[1]." + get_tcp_param(1)["KCP_SERVER_PARAM"] + "   丢包率15%的时候，降到0.42%")
         print("[2]." + get_tcp_param(2)["KCP_SERVER_PARAM"] + "   丢包率30%的时候,降到0.63%")
         input_select = input("请输入选项：")
-        if input_select in ("0","1","2"):
+        if input_select in ("0","1","2",):
             KCP_SERVER_PARAM = get_tcp_param(int(input_select))['KCP_SERVER_PARAM']
             KCP_CLIENT_PARAM = get_tcp_param(int(input_select))['KCP_CLIENT_PARAM']
             print("当前kcptun参数："+get_tcp_param(int(input_select))['KCP_SERVER_PARAM'])
+            break
+        elif input_select=="":
+            KCP_SERVER_PARAM = get_tcp_param(0)['KCP_SERVER_PARAM']
+            KCP_CLIENT_PARAM = get_tcp_param(0)['KCP_CLIENT_PARAM']
+            print("当前kcptun参数："+get_tcp_param(0)['KCP_SERVER_PARAM'])
             break
         else:
             print("输入错误，请重新输入")
@@ -242,12 +252,12 @@ if __name__ == '__main__':
     while True:
         print("请选择方案：")
         print("[0].退出")
-        print("[1].SS + Kcptun + UDPspeeder + 单UDP2raw [游戏推荐]")
+        print("[1].SS + Kcptun + UDPspeeder + 单UDP2raw [默认 游戏推荐]")
         print("[2].SS + Kcptun + UDPspeeder")
         print("[3].SS + Kcptun + UDPspeeder + 双UDP2raw")
         print("[4].同时运行[2]和[3]")
         input_select = input("请输入选项：")
-        if input_select == "1":
+        if input_select == "" or input_select == "1":
             ss_kcptun_udpspeeder_udp2raw(server_num=server_num,client_offset=client_offset)
         if input_select == "2":
             ss_kcptun_udpspeeder(server_num=server_num,client_offset=client_offset)
