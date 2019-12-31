@@ -3,15 +3,16 @@ import re
 import json
 import string
 import random
-from urllib import request
+from urllib import request,parse
 import base64
 
 # Linux下控制台输出颜色
 if os.name == 'nt':
-    CBLUE = CRED = CEND = ""
+    CBLUE = CRED = CEND = CYELLOW =""
 else:
     CBLUE = '\033[94m'
     CRED = '\033[95m'
+    CYELLOW = '\033[93m'
     CEND = '\033[0m'
 
 # 密码和加密方式
@@ -27,6 +28,7 @@ UDP2RAW_PARAM = "--cipher-mode xor --auth-mode simple --raw-mode faketcp  --fix-
 
 # 服务端默认参数
 server_ip = None
+server_domain =None
 server_ss_port = 6443  # 原生ss端口
 server_name = "ssserver"
 server_kcptun_port = 6500
@@ -36,9 +38,11 @@ server_udp2raw_port = 4096
 # 客户端默认参数
 client_name = "ssclient"
 client_ss_port = server_kcptun_port  # windows，安卓等SS客户端可以连这个端口使用
+relay_host= "127.0.0.1" #运行docker客户端的IP或域名, 生成ss链接用于局域网/国内中转
 client_socks5_port = 1080
 
 ip_data=dict()
+
 
 def get_tcp_param(select):
     return {
@@ -57,19 +61,19 @@ def getRandomPassword(num):
     keys = "".join(key)
     return keys
 
-def getURI(ss_port,description="",group=""):
-    server_name = " ".join([ip_data.get("country",""),ip_data.get("city",""),description])
-    server_name_encode=base64.urlsafe_b64encode(str.encode(server_name,'utf8')).decode("utf-8")
-
+def getURI(server_ip,ss_port,description="",group=""):
+    remarks = " ".join([ip_data.get("country",""),ip_data.get("city",""),description])
+    remarks_b64_encode=base64.urlsafe_b64encode(str.encode(remarks,'utf8')).decode("utf-8")
+    ss_tag="#"+parse.quote(remarks)
     ss_data = f"{SS_ENCRYPT}:{PASSWD}@{server_ip}:{ss_port}"
-    ss_uri = base64.b64encode(ss_data.encode('utf8')).decode("utf-8")
-    print(f"ss://{ss_uri}".strip("="))
+    ss_uri = base64.b64encode(ss_data.encode('utf8')).decode("utf-8")+ss_tag
+    print(" "*4+CYELLOW+f"ss://{ss_uri}"+CEND)
 
     password_encode=base64.urlsafe_b64encode(str.encode(PASSWD,'utf8')).decode("utf-8")
     group_encode=base64.urlsafe_b64encode(str.encode(group,'utf8')).decode("utf-8")
-    ssr_data = f"{server_ip}:{ss_port}:origin:{SS_ENCRYPT}:plain:{password_encode}/?obfsparam=&remarks={server_name_encode}&group={group_encode}"
-    ssr_uri = base64.b64encode(ssr_data.encode('utf8')).decode("utf-8")
-    print(f"ssr://{ssr_uri}".strip("="))
+    ssr_data = f"{server_ip}:{ss_port}:origin:{SS_ENCRYPT}:plain:{password_encode}/?obfsparam=&remarks={remarks_b64_encode}&group={group_encode}"
+    ssr_uri = base64.urlsafe_b64encode(ssr_data.encode('utf8')).decode("utf-8").strip("=")
+    print(" "*4+CYELLOW+f"ssr://{ssr_uri}".strip("=")+CEND)
 
 def ss_kcptun_udpspeeder(server_num=0, client_offset=0, suffix=""):
     server_cmd = f'docker rm -f {server_name}_{server_num};\\\n\
@@ -102,17 +106,17 @@ def ss_kcptun_udpspeeder(server_num=0, client_offset=0, suffix=""):
     -K "-l :6500 -r {server_ip}:{server_kcptun_port + server_num * 2} {KCP_CLIENT_PARAM}" \\\n\
     -u "-c -l[::]:6500  -r{server_ip}:{server_udpspeeder_port + server_num * 2} {UDPSPEEDER_PARAM} -k {PASSWD}"'
     print(f"{CRED}↓SS + Kcptun + UDPspeeder↓{CEND}")
-    print("\n")
-    print(f"服务端：\n{CBLUE}{server_cmd}{CEND}")
-    print(f"客户端：\n{CBLUE}{client_cmd}{CEND}")
-    print("\n")
+    print(f"服务端：\n    {CBLUE}{server_cmd}{CEND}")
+    print(f"客户端：\n    {CBLUE}{client_cmd}{CEND}")
     print(f"{CRED}↑SS + Kcptun + UDPspeeder↑{CEND}")
     print(f"服务端原生SS端口：{server_ss_port + server_num}")
     print(f"客户端本地映射SS端口：{client_ss_port + client_offset}\n"
           f"SOCKS5端口：{client_socks5_port + client_offset}")
     print("密码为：" + PASSWD)
-    getURI(client_ss_port + client_offset,"")
-    print("\n")
+    print("直连服务端SS：")
+    getURI(server_domain,server_ss_port + server_num, "直连")
+    print(f"通过{CRED}{relay_host}{CEND}的 Kcptun + UDPspeeder 的监听端口连接SS：")
+    getURI(relay_host, client_ss_port + client_offset, '')
 
 
 def ss_kcptun_udpspeeder_dual_udp2raw(server_num=0, client_offset=0, suffix=""):
@@ -151,18 +155,18 @@ def ss_kcptun_udpspeeder_dual_udp2raw(server_num=0, client_offset=0, suffix=""):
     -u "-c -l[::]:6500  -r127.0.0.1:3334 {UDPSPEEDER_PARAM} -k {PASSWD}" \\\n\
     -s "ss-local" \\\n\
     -S "-s 127.0.0.1 -p 6500 -b 0.0.0.0 -l 1080 -u -m {SS_ENCRYPT} -k {PASSWD}  {SS_PARAM}"'
-    print(f"{CRED}↓SS + Kcptun+UDP2raw + UDPspeeder+UDP2raw↓{CEND}")
-    print("\n")
-    print(f"服务端：\n{CBLUE}{server_cmd}{CEND}")
-    print(f"客户端：\n{CBLUE}{client_cmd}{CEND}")
-    print("\n")
-    print(f"{CRED}↑SS + Kcptun+UDP2raw + UDPspeeder+UDP2raw↑{CEND}")
+    print(f"{CRED}↓SS + Kcptun + UDPspeeder + 双UDP2raw↓{CEND}")
+    print(f"服务端：\n    {CBLUE}{server_cmd}{CEND}")
+    print(f"客户端：\n    {CBLUE}{client_cmd}{CEND}")
+    print(f"{CRED}↑SS + Kcptun + UDPspeeder + 双UDP2raw↑{CEND}")
     print(f"服务端原生SS端口：{server_ss_port + server_num}")
     print(f"客户端本地映射SS端口：{client_ss_port + client_offset}\n"
           f"SOCKS5端口：{client_socks5_port + client_offset}")
     print("密码为：" + PASSWD)
-    getURI(client_ss_port + client_offset,'双udp2raw')
-    print("\n")
+    print("直连服务端SS：")
+    getURI(server_domain,server_ss_port + server_num, "直连")
+    print(f"通过{CRED}{relay_host}{CEND}的 Kcptun + UDPspeeder 的监听端口连接SS：")
+    getURI(relay_host, client_ss_port + client_offset, '双udp2raw')
 
 
 def ss_kcptun_udpspeeder_udp2raw(server_num=0, client_offset=0, suffix=""):
@@ -201,29 +205,43 @@ def ss_kcptun_udpspeeder_udp2raw(server_num=0, client_offset=0, suffix=""):
     -S "-s 127.0.0.1 -p 6500 -b 0.0.0.0 -l 1080 -u -m {SS_ENCRYPT} -k {PASSWD}  {SS_PARAM}" '
 
     print(f"{CRED}↓SS + Kcptun + UDPspeeder+UDP2raw↓{CEND}")
-    print("\n")
-    print(f"服务端：\n{CBLUE}{server_cmd}{CEND}")
-    print(f"客户端：\n{CBLUE}{client_cmd}{CEND}")
-    print("\n")
+    print(f"服务端：\n    {CBLUE}{server_cmd}{CEND}")
+    print(f"客户端：\n    {CBLUE}{client_cmd}{CEND}")
     print(f"{CRED}↑SS + Kcptun + UDPspeeder+UDP2raw↑{CEND}")
     print(f"服务端原生SS端口：{server_ss_port + server_num}")
     print(f"客户端本地映射SS端口：{client_ss_port + client_offset}\n"
           f"SOCKS5端口：{client_socks5_port + client_offset}")
     print("密码为：" + PASSWD)
-    getURI(client_ss_port + client_offset ,"单udp2raw")
-    print("\n")
+    print("直连服务端SS：")
+    getURI(server_domain,server_ss_port + server_num, "直连")
+    print(f"通过{CRED}{relay_host}{CEND}的 Kcptun + UDPspeeder 的监听端口连接SS：")
+    getURI(relay_host, client_ss_port + client_offset, '单udp2raw')
 
 
 if __name__ == '__main__':
     if not PASSWD:
         PASSWD = getRandomPassword(8)
     while True:
-        input_ip = input("请输入服务器IP：")
-        if re.match("^\d{1,3}\.\d{1,3}\.\d{1,3}\.\d{1,3}$", input_ip):
-            server_ip = input_ip
-            break
-        else:
-            print("格式有误，请重新输入。")
+        query = input("请输入服务器IP或者域名：")
+        try:
+            print("正在获取服务器IP的所在地...")
+            with request.urlopen(f"http://ip-api.com/json/{query}?lang=zh-CN") as f:
+                ip_data = json.loads(f.read().decode('utf-8'))
+                if ip_data['status']=='success':
+                    client_name = "ss_" + ip_data['countryCode'].lower() + "_" + str(ip_data['region']).lower()
+                    server_ip = ip_data['query']
+                    if(query!=server_ip):
+                        server_domain=query
+                    else:
+                        server_domain=server_ip
+                    print("服务器信息："+" ".join([ip_data.get("country",""),ip_data.get("city",""),server_ip]))
+                    break
+                else:
+                    print(ip_data)
+                    print("获取失败，请检查输入是否有误")
+        except:
+            print("获取失败，请重试")
+            pass
 
     server_num = 0
     client_offset = 0
@@ -238,15 +256,6 @@ if __name__ == '__main__':
         client_offset = int(sn_input)
     print(f"服务端docker容器名为：{server_name}_{server_num}")
 
-    try:
-        print("正在获取服务器IP的所在地...")
-        with request.urlopen(f"http://ip-api.com/json/{server_ip}?lang=zh-CN") as f:
-            ip_data = json.loads(f.read().decode('utf-8'))
-            client_name = "ss_" + ip_data['countryCode'].lower() + "_" + str(
-                ip_data['region']).lower()
-    except:
-        print("获取失败")
-        pass
     cname_input = input(f"请输入客户端容器名(默认为{client_name}，回车保持默认)\n：")
     if cname_input:
         client_name = cname_input
@@ -285,6 +294,7 @@ if __name__ == '__main__':
         print("[2].SS + Kcptun + UDPspeeder")
         print("[3].SS + Kcptun + UDPspeeder + 双UDP2raw")
         print("[4].同时运行[2]和[3]")
+        input_select = input("请输入选项：")
         if input_select == "":
             ss_kcptun_udpspeeder_udp2raw(server_num=server_num, client_offset=client_offset)
             break
@@ -300,11 +310,3 @@ if __name__ == '__main__':
         if input_select == "0":
             print("退出")
             break
-
-
-
-
-
-
-
-
