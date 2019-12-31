@@ -1,6 +1,6 @@
 ## Docker集成
 - **shadowsocks-libev 版本: 3.3.3**
-- **kcptun 版本: 20190924**
+- **kcptun 版本: 20191127**
 - **udpspeederv2 版本: 20190121.0**
 - **udp2raw 版本: 20190716.test.0**
 
