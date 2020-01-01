@@ -5,14 +5,6 @@ import string
 import random
 from urllib import request,parse
 import base64
-# Linux下控制台输出颜色
-if os.name == 'nt':
-    CBLUE = CRED = CEND = CYELLOW =""
-else:
-    CBLUE = '\033[94m'
-    CRED = '\033[95m'
-    CYELLOW = '\033[93m'
-    CEND = '\033[0m'
 
 # 密码和加密方式
 PASSWD = ""  # 为空时自动生成
@@ -43,6 +35,15 @@ relay_host= "127.0.0.1" #运行docker客户端的IP或域名, 生成ss链接用�
 client_socks5_port = 1080
 
 ip_data=dict()
+# Linux下控制台输出颜色
+if os.name == 'nt':
+    CBLUE = CRED = CEND = CYELLOW = CGREEN=""
+else:
+    CBLUE = '\033[94m'
+    CRED = '\033[95m'
+    CYELLOW = '\033[93m'
+    CGREEN = '\033[92m'
+    CEND = '\033[0m'
 
 
 def get_tcp_param(select):
@@ -115,7 +116,7 @@ def ss_bbr(server_num=0, client_offset=0, suffix=""):
     print(f"服务端SS端口：{server_ss_port + server_num}")
     print(f"客户端SOCKS5端口：{client_socks5_port + client_offset}")
     print("密码为：" + PASSWD)
-    print(f"用于其他客户端：")
+    print(f"导出链接：")
     getURI(server_domain,server_ss_port + server_num, f"{BBR_DESCRIPTION} 直连")
 
 
@@ -160,7 +161,7 @@ def ss_kcptun_udpspeeder(server_num=0, client_offset=0, suffix=""):
     print(f"客户端本地映射SS端口：{client_ss_port + client_offset}\n"
           f"SOCKS5端口：{client_socks5_port + client_offset}")
     print("密码为：" + PASSWD)
-    print(f"{BBR_MODULE}直连服务端SS：")
+    print(f"{BBR_DESCRIPTION+'加速' if BBR_MODULE else '' }直连服务端SS：")
     getURI(server_domain,server_ss_port + server_num, f"{BBR_DESCRIPTION} 直连")
     print(f"通过{CRED}{relay_host}{CEND}的 Kcptun + UDPspeeder 的监听端口连接SS：")
     getURI(relay_host, client_ss_port + client_offset, '')
@@ -211,7 +212,7 @@ def ss_kcptun_udpspeeder_dual_udp2raw(server_num=0, client_offset=0, suffix=""):
     print(f"客户端本地映射SS端口：{client_ss_port + client_offset}\n"
           f"SOCKS5端口：{client_socks5_port + client_offset}")
     print("密码为：" + PASSWD)
-    print(f"{BBR_DESCRIPTION} 直连服务端SS：")
+    print(f"{BBR_DESCRIPTION+'加速' if BBR_MODULE else '' }直连服务端SS：")
     getURI(server_domain,server_ss_port + server_num, f"{BBR_DESCRIPTION} 直连")
     print(f"通过{CRED}{relay_host}{CEND}的 Kcptun + UDPspeeder 的监听端口连接SS：")
     getURI(relay_host, client_ss_port + client_offset, '双udp2raw')
@@ -252,15 +253,15 @@ def ss_kcptun_udpspeeder_udp2raw(server_num=0, client_offset=0, suffix=""):
     -u "-c -l[::]:6500  -r127.0.0.1:3334 {UDPSPEEDER_PARAM} -k {PASSWD}" \\\n\
     -s "ss-local" \\\n\
     -S "-s 127.0.0.1 -p 6500 -b 0.0.0.0 -l 1080 -u -m {SS_ENCRYPT} -k {PASSWD}  {SS_PARAM}"'
-    print(f"{CRED}↓SS + Kcptun + UDPspeeder+UDP2raw↓{CEND}")
+    print(f"{CRED}↓SS + Kcptun + UDPspeeder+ 单UDP2raw↓{CEND}")
     print(f"服务端：\n    {CBLUE}{server_cmd}{CEND}")
     print(f"客户端：\n    {CBLUE}{client_cmd}{CEND}")
-    print(f"{CRED}↑SS + Kcptun + UDPspeeder+UDP2raw↑{CEND}")
+    print(f"{CRED}↑SS + Kcptun + UDPspeeder+ 单UDP2raw↑{CEND}")
     print(f"服务端原生SS端口：{server_ss_port + server_num}")
     print(f"客户端本地映射SS端口：{client_ss_port + client_offset}\n"
           f"SOCKS5端口：{client_socks5_port + client_offset}")
     print("密码为：" + PASSWD)
-    print(f"{BBR_DESCRIPTION} 直连服务端SS：")
+    print(f"{BBR_DESCRIPTION+'加速' if BBR_MODULE else '' } 直连服务端SS：")
     getURI(server_domain,server_ss_port + server_num, f"{BBR_DESCRIPTION} 直连")
     print(f"通过{CRED}{relay_host}{CEND}的 Kcptun + UDPspeeder 的监听端口连接SS：")
     getURI(relay_host, client_ss_port + client_offset, '单udp2raw')
@@ -270,7 +271,7 @@ if __name__ == '__main__':
     if not PASSWD:
         PASSWD = getRandomPassword(8)
     while True:
-        query = input("请输入服务器IP或者域名(留空为获取本机IP)：")
+        query = input(f"{CGREEN}请输入服务器IP或者域名(留空为获取本机IP)：{CEND}")
         try:
             print("正在获取服务器IP的所在地...")
             with request.urlopen(f"http://ip-api.com/json/{query}?lang=zh-CN") as f:
@@ -283,86 +284,84 @@ if __name__ == '__main__':
                         server_domain=query
                     else:
                         server_domain=server_ip
-                    print("服务器信息："+" ".join([ip_data.get("country",""),ip_data.get("city",""),server_ip]))
+                    print(f"{CYELLOW}服务器信息："+" ".join([ip_data.get("country",""),ip_data.get("city",""),server_ip])+CEND)
                     break
                 else:
-                    print(ip_data)
                     print("获取失败，请检查输入是否有误")
         except Exception as e:
             print("获取失败，请重试",e)
-            pass
 
     server_num = 0
     client_offset = 0
 
-    sname_input = input(f"请输入服务端容器名(默认为{server_name}，回车保持默认)\n：")
+    sname_input = input(f"{CGREEN}请输入服务端容器名(默认为{CEND}{CYELLOW}{server_name}{CEND}{CGREEN}，回车保持默认)\n：{CEND}")
     if sname_input:
         server_name = sname_input
 
-    sn_input = input("请输入sserver容器的序号（用于运行多个容器的情况，默认为0，回车保持默认）\n：")
+    sn_input = input(f"{CGREEN}请输入sserver容器的序号（用于运行多个容器的情况，默认为0，回车保持默认）\n：{CEND}")
     if re.match("^\d+$", sn_input):
         server_num = int(sn_input)
         client_offset = int(sn_input)
-    print(f"服务端docker容器名为：{server_name}_{server_num}")
+    print(f"服务端docker容器名为：{CYELLOW}{server_name}_{server_num}{CEND}")
 
-    cname_input = input(f"请输入客户端容器名(默认为{client_name}，回车保持默认)\n：")
+    cname_input = input(f"{CGREEN}请输入客户端容器名(默认为{CEND}{CYELLOW}{client_name}{CEND}{CGREEN}，回车保持默认)\n：{CEND}")
     if cname_input:
         client_name = cname_input
 
-    print(f"客户端docker容器名为：{client_name}")
+    print(f"客户端docker容器名为：{CYELLOW}{client_name}{CEND}")
     cl_offset = input(
-        f"客户端将使用{client_socks5_port + client_offset}端口，如需修改请输入新的偏移量，当前为{client_socks5_port}+{server_num}\n：")
+        f"{CGREEN}客户端将使用{CEND}{CYELLOW}{client_socks5_port + client_offset}{CEND}{CGREEN}端口，如需修改请输入新的偏移量，当前为{client_socks5_port}+{CEND}{CYELLOW}{server_num}\n：{CEND}")
 
     if re.match("^\d+$", cl_offset):
         client_offset = int(cl_offset)
-    print(f"客户端SOCKS5端口为：{client_socks5_port + client_offset}")
+    print(f"客户端SOCKS5端口为：{CYELLOW}{client_socks5_port + client_offset}{CEND}")
 
 
 
     while True:
-        print("请选择kcptun的参数")
-        print("[0]." + get_tcp_param(0)["KCP_SERVER_PARAM"] + "   低丢包率下使用 [默认]")
-        print("[1]." + get_tcp_param(1)["KCP_SERVER_PARAM"] + "   丢包率15%的时候，降到0.42%")
-        print("[2]." + get_tcp_param(2)["KCP_SERVER_PARAM"] + "   丢包率30%的时候,降到0.63%")
+        print(f"{CGREEN}请选择kcptun的参数{CEND}")
+        print(f"{CGREEN}[0]." + get_tcp_param(0)["KCP_SERVER_PARAM"] + f"   低丢包率下使用 {CEND}{CYELLOW}[默认]{CEND}")
+        print(f"{CGREEN}[1]." + get_tcp_param(1)["KCP_SERVER_PARAM"] + f"   丢包率15%的时候，降到0.42%{CEND}")
+        print(f"{CGREEN}[2]." + get_tcp_param(2)["KCP_SERVER_PARAM"] + f"   丢包率30%的时候,降到0.63%{CEND}")
         input_select = input("请输入选项：")
         if input_select in ("0", "1", "2",):
             KCP_SERVER_PARAM = get_tcp_param(int(input_select))['KCP_SERVER_PARAM']
             KCP_CLIENT_PARAM = get_tcp_param(int(input_select))['KCP_CLIENT_PARAM']
-            print("当前kcptun参数：" + get_tcp_param(int(input_select))['KCP_SERVER_PARAM'])
+            print(f"当前kcptun参数：{CYELLOW}{KCP_SERVER_PARAM}{CEND}")
             break
         elif input_select == "":
             KCP_SERVER_PARAM = get_tcp_param(0)['KCP_SERVER_PARAM']
             KCP_CLIENT_PARAM = get_tcp_param(0)['KCP_CLIENT_PARAM']
-            print("当前kcptun参数：" + get_tcp_param(0)['KCP_SERVER_PARAM'])
+            print(f"当前kcptun参数：{CYELLOW}{KCP_SERVER_PARAM}{CEND}")
             break
         else:
-            print("输入错误，请重新输入")
+            print(CRED+"输入错误，请重新输入"+CEND)
 
     while True:
-        print(f"请选择启动的bbr模块,回车保持默认,当前为{BBR_DESCRIPTION}")
+        print(f"{CGREEN}请选择启动的bbr模块,回车保持默认,当前为{CEND}{CYELLOW}{BBR_DESCRIPTION}{CEND}")
         for i in range(4):
-            print(f"[{i}]." + " ".join(get_bbr_module(i)))
+            print(f"{CGREEN}[{i}]." + " ".join(get_bbr_module(i))+CEND)
 
         input_select = input("请输入选项：")
         if input_select in ("0", "1", "2","3"):
             BBR_MODULE,BBR_DESCRIPTION=get_bbr_module(int(input_select))
-            print("当前bbr模块：" + " ".join(get_bbr_module(i)))
+            print("当前bbr模块：" +CYELLOW+ " ".join([BBR_MODULE,BBR_DESCRIPTION])+CEND)
             break
         elif input_select == "":
-            print("当前bbr模块：" + BBR_MODULE +" "+ BBR_DESCRIPTION)
+            print("当前bbr模块：" +CYELLOW+ " ".join([BBR_MODULE,BBR_DESCRIPTION])+CEND)
             break
         else:
-            print("输入错误，请重新输入")
+            print(CRED+"输入错误，请重新输入"+CEND)
 
     while True:
-        print("请选择方案： BBR加速TCP, KCP为UDP 同时启用不影响")
+        print(f"{CGREEN}请选择方案： BBR加速TCP, KCP为UDP 同时启用不影响")
         print("[0].退出")
         bbr = BBR_DESCRIPTION if BBR_MODULE else ""
         print(f"[1].SS + {bbr} ")
-        print(f"[2].SS + {bbr} + Kcptun + UDPspeeder + 单UDP2raw [默认 游戏推荐]")
+        print(f"[2].SS + {bbr} + Kcptun + UDPspeeder + 单UDP2raw {CEND}{CYELLOW}[默认 游戏推荐]{CEND}{CGREEN}")
         print(f"[3].SS + {bbr} + Kcptun + UDPspeeder")
         print(f"[4].SS + {bbr} + Kcptun + UDPspeeder + 双UDP2raw")
-        print(f"[5].同时运行[3]和[4]")
+        print(f"[5].同时运行[3]和[4]{CEND}")
         input_select = input("请输入选项：")
         if input_select == "":
             ss_kcptun_udpspeeder_udp2raw(server_num=server_num, client_offset=client_offset)
@@ -377,7 +376,7 @@ if __name__ == '__main__':
             ss_kcptun_udpspeeder_dual_udp2raw(server_num=server_num, client_offset=client_offset)
         if input_select == "5":
             ss_kcptun_udpspeeder(server_num=server_num, client_offset=client_offset, suffix="")
-            ss_kcptun_udpspeeder_udp2raw(server_num=server_num + 1, client_offset=client_offset + 1, suffix="_udp2raw")
+            ss_kcptun_udpspeeder_dual_udp2raw(server_num=server_num + 1, client_offset=client_offset + 1, suffix="_udp2raw")
         if input_select == "0":
             print("退出")
             break
