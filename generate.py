@@ -5,7 +5,6 @@ import string
 import random
 from urllib import request,parse
 import base64
-
 # Linux下控制台输出颜色
 if os.name == 'nt':
     CBLUE = CRED = CEND = CYELLOW =""
@@ -25,7 +24,9 @@ UDPSPEEDER_PARAM = "-f1:3,2:4,8:6,20:10"  # UDPspeeder的fec参数
 KCP_SERVER_PARAM = "--mode fast2"
 KCP_CLIENT_PARAM = "--mode fast2"
 UDP2RAW_PARAM = "--cipher-mode xor --auth-mode simple --raw-mode faketcp  --fix-gro -a"
-
+BBR_MODULE = "rinetd-bbr"
+BBR_DESCRIPTION = "bbr原版"
+BBR_PARAM = "0.0.0.0 6443 0.0.0.0 6443"
 # 服务端默认参数
 server_ip = None
 server_domain =None
@@ -54,6 +55,13 @@ def get_tcp_param(select):
             "KCP_CLIENT_PARAM": "--mode fast --datashard 15 --parityshard 15"},  # 丢包率30%的时候,降到0.63%
     }[select]
 
+def get_bbr_module(select):
+    return {
+        0:["","不启用"],
+        1:["rinetd-bbr","bbr原版"],
+        2:["rinetd-bbr-powered","bbr魔改版"],
+        3:["rinetd-pcc","pcc"]
+    }[select]
 
 def getRandomPassword(num):
     str = string.ascii_letters + string.digits
@@ -62,7 +70,9 @@ def getRandomPassword(num):
     return keys
 
 def getURI(server_ip,ss_port,description="",group=""):
-    remarks = " ".join([ip_data.get("country",""),ip_data.get("city",""),description])
+    country=ip_data.get("country")
+    city=ip_data.get("city","") if ip_data.get("city")!=ip_data.get("country") else ""
+    remarks = " ".join([country,city,description])
     remarks_b64_encode=base64.urlsafe_b64encode(str.encode(remarks,'utf8')).decode("utf-8")
     ss_tag="#"+parse.quote(remarks)
     ss_data = f"{SS_ENCRYPT}:{PASSWD}@{server_ip}:{ss_port}"
@@ -75,9 +85,44 @@ def getURI(server_ip,ss_port,description="",group=""):
     ssr_uri = base64.urlsafe_b64encode(ssr_data.encode('utf8')).decode("utf-8").strip("=")
     print(" "*4+CYELLOW+f"ssr://{ssr_uri}".strip("=")+CEND)
 
+def ss_bbr(server_num=0, client_offset=0, suffix=""):
+    server_cmd = f'docker rm -f {server_name}_{server_num};\\\n\
+       docker run -dt \\\n\
+       --cap-add=NET_ADMIN \\\n\
+       --restart=always \\\n\
+       --name {server_name}_{server_num} \\\n\
+       -p {server_ss_port + server_num}:6443 \\\n\
+       -p {server_ss_port + server_num}:6443/udp \\\n\
+        sola97/shadowsocks \\\n\
+       -s "ss-server" \\\n\
+       -S "-s 0.0.0.0 -p 6443 -m {SS_ENCRYPT} -k {PASSWD} -u {SS_PARAM}\" \\\n\
+       -b "{BBR_MODULE}" '
+
+    client_cmd = f'docker rm -f {client_name}{suffix};\\\n\
+       docker run -dt \\\n\
+       --restart=always \\\n\
+       --name {client_name}{suffix} \\\n\
+       -p {client_socks5_port + client_offset}:1080 \\\n\
+       -p {client_socks5_port + client_offset}:1080/udp \\\n\
+       sola97/shadowsocks \\\n\
+       -s "ss-local" \\\n\
+       -S "-s {server_domain} -p {server_ss_port + server_num} -b 0.0.0.0 -l 1080 -u -m {SS_ENCRYPT} -k {PASSWD}  {SS_PARAM}"'
+
+    print(f"{CRED}↓SS + BBR↓{CEND}")
+    print(f"服务端：\n    {CBLUE}{server_cmd}{CEND}")
+    print(f"客户端：\n    {CBLUE}{client_cmd}{CEND}")
+    print(f"{CRED}↑SS + BBR↑{CEND}")
+    print(f"服务端SS端口：{server_ss_port + server_num}")
+    print(f"客户端SOCKS5端口：{client_socks5_port + client_offset}")
+    print("密码为：" + PASSWD)
+    print(f"用于其他客户端：")
+    getURI(server_domain,server_ss_port + server_num, f"{BBR_DESCRIPTION} 直连")
+
+
 def ss_kcptun_udpspeeder(server_num=0, client_offset=0, suffix=""):
     server_cmd = f'docker rm -f {server_name}_{server_num};\\\n\
     docker run -dt \\\n\
+    --cap-add=NET_ADMIN \\\n\
     --restart=always \\\n\
     --name {server_name}_{server_num} \\\n\
     -p {server_ss_port + server_num}:6443 \\\n\
@@ -89,7 +134,9 @@ def ss_kcptun_udpspeeder(server_num=0, client_offset=0, suffix=""):
     -S "-s 0.0.0.0 -p 6443 -m {SS_ENCRYPT} -k {PASSWD} -u {SS_PARAM}\" \\\n\
     -k "kcpserver" \\\n\
     -K "-l 0.0.0.0:6500  -t 127.0.0.1:6443 {KCP_SERVER_PARAM} " \\\n\
-    -u "-s -l0.0.0.0:6501 -r 127.0.0.1:6443  {UDPSPEEDER_PARAM} -k {PASSWD}"'
+    -u "-s -l0.0.0.0:6501 -r 127.0.0.1:6443  {UDPSPEEDER_PARAM} -k {PASSWD}" \\\n\
+    -b "{BBR_MODULE}" '
+
 
     client_cmd = f'docker rm -f {client_name}{suffix};\\\n\
     docker run -dt \\\n\
@@ -113,8 +160,8 @@ def ss_kcptun_udpspeeder(server_num=0, client_offset=0, suffix=""):
     print(f"客户端本地映射SS端口：{client_ss_port + client_offset}\n"
           f"SOCKS5端口：{client_socks5_port + client_offset}")
     print("密码为：" + PASSWD)
-    print("直连服务端SS：")
-    getURI(server_domain,server_ss_port + server_num, "直连")
+    print(f"{BBR_MODULE}直连服务端SS：")
+    getURI(server_domain,server_ss_port + server_num, f"{BBR_DESCRIPTION} 直连")
     print(f"通过{CRED}{relay_host}{CEND}的 Kcptun + UDPspeeder 的监听端口连接SS：")
     getURI(relay_host, client_ss_port + client_offset, '')
 
@@ -122,8 +169,8 @@ def ss_kcptun_udpspeeder(server_num=0, client_offset=0, suffix=""):
 def ss_kcptun_udpspeeder_dual_udp2raw(server_num=0, client_offset=0, suffix=""):
     server_cmd = f'docker rm -f {server_name}_{server_num};\\\n\
     docker run -dt \\\n\
-    --restart=always \\\n\
     --cap-add=NET_ADMIN \\\n\
+    --restart=always \\\n\
     --name {server_name}_{server_num} \\\n\
     -p {server_ss_port + server_num}:6443 \\\n\
     -p {server_ss_port + server_num}:6443/udp \\\n\
@@ -136,7 +183,8 @@ def ss_kcptun_udpspeeder_dual_udp2raw(server_num=0, client_offset=0, suffix=""):
     -K "-l 0.0.0.0:6500  -t 127.0.0.1:6443 {KCP_SERVER_PARAM} " \\\n\
     -u "-s -l0.0.0.0:6501 -r 127.0.0.1:6443  {UDPSPEEDER_PARAM} -k {PASSWD}" \\\n\
     -t "-s -l0.0.0.0:4096 -r 127.0.0.1:6500    -k {PASSWD} {UDP2RAW_PARAM}" \\\n\
-    -T "-s -l0.0.0.0:4097 -r 127.0.0.1:6501    -k {PASSWD} {UDP2RAW_PARAM}"'
+    -T "-s -l0.0.0.0:4097 -r 127.0.0.1:6501    -k {PASSWD} {UDP2RAW_PARAM}"\\\n\
+    -b "{BBR_MODULE}" '
 
     client_cmd = f'docker rm -f {client_name}{suffix};\\\n\
     docker run -dt \\\n\
@@ -163,8 +211,8 @@ def ss_kcptun_udpspeeder_dual_udp2raw(server_num=0, client_offset=0, suffix=""):
     print(f"客户端本地映射SS端口：{client_ss_port + client_offset}\n"
           f"SOCKS5端口：{client_socks5_port + client_offset}")
     print("密码为：" + PASSWD)
-    print("直连服务端SS：")
-    getURI(server_domain,server_ss_port + server_num, "直连")
+    print(f"{BBR_DESCRIPTION} 直连服务端SS：")
+    getURI(server_domain,server_ss_port + server_num, f"{BBR_DESCRIPTION} 直连")
     print(f"通过{CRED}{relay_host}{CEND}的 Kcptun + UDPspeeder 的监听端口连接SS：")
     getURI(relay_host, client_ss_port + client_offset, '双udp2raw')
 
@@ -185,7 +233,8 @@ def ss_kcptun_udpspeeder_udp2raw(server_num=0, client_offset=0, suffix=""):
     -k "kcpserver" \\\n\
     -K "-l 0.0.0.0:6500  -t 127.0.0.1:6443 {KCP_SERVER_PARAM} " \\\n\
     -u "-s -l0.0.0.0:6501 -r 127.0.0.1:6443  {UDPSPEEDER_PARAM} -k {PASSWD}"  \\\n\
-    -t "-s -l0.0.0.0:4097 -r 127.0.0.1:6501    -k {PASSWD} {UDP2RAW_PARAM}"'
+    -t "-s -l0.0.0.0:4097 -r 127.0.0.1:6501    -k {PASSWD} {UDP2RAW_PARAM}"  \\\n\
+    -b "{BBR_MODULE}" '
 
     client_cmd = f'docker rm -f {client_name}{suffix};\\\n\
     docker run -dt \\\n\
@@ -202,8 +251,7 @@ def ss_kcptun_udpspeeder_udp2raw(server_num=0, client_offset=0, suffix=""):
     -K "-l :6500 -r {server_ip}:{server_kcptun_port + server_num * 2} {KCP_CLIENT_PARAM}" \\\n\
     -u "-c -l[::]:6500  -r127.0.0.1:3334 {UDPSPEEDER_PARAM} -k {PASSWD}" \\\n\
     -s "ss-local" \\\n\
-    -S "-s 127.0.0.1 -p 6500 -b 0.0.0.0 -l 1080 -u -m {SS_ENCRYPT} -k {PASSWD}  {SS_PARAM}" '
-
+    -S "-s 127.0.0.1 -p 6500 -b 0.0.0.0 -l 1080 -u -m {SS_ENCRYPT} -k {PASSWD}  {SS_PARAM}"'
     print(f"{CRED}↓SS + Kcptun + UDPspeeder+UDP2raw↓{CEND}")
     print(f"服务端：\n    {CBLUE}{server_cmd}{CEND}")
     print(f"客户端：\n    {CBLUE}{client_cmd}{CEND}")
@@ -212,8 +260,8 @@ def ss_kcptun_udpspeeder_udp2raw(server_num=0, client_offset=0, suffix=""):
     print(f"客户端本地映射SS端口：{client_ss_port + client_offset}\n"
           f"SOCKS5端口：{client_socks5_port + client_offset}")
     print("密码为：" + PASSWD)
-    print("直连服务端SS：")
-    getURI(server_domain,server_ss_port + server_num, "直连")
+    print(f"{BBR_DESCRIPTION} 直连服务端SS：")
+    getURI(server_domain,server_ss_port + server_num, f"{BBR_DESCRIPTION} 直连")
     print(f"通过{CRED}{relay_host}{CEND}的 Kcptun + UDPspeeder 的监听端口连接SS：")
     getURI(relay_host, client_ss_port + client_offset, '单udp2raw')
 
@@ -222,15 +270,16 @@ if __name__ == '__main__':
     if not PASSWD:
         PASSWD = getRandomPassword(8)
     while True:
-        query = input("请输入服务器IP或者域名：")
+        query = input("请输入服务器IP或者域名(留空为获取本机IP)：")
         try:
             print("正在获取服务器IP的所在地...")
             with request.urlopen(f"http://ip-api.com/json/{query}?lang=zh-CN") as f:
                 ip_data = json.loads(f.read().decode('utf-8'))
                 if ip_data['status']=='success':
-                    client_name = "ss_" + ip_data['countryCode'].lower() + "_" + str(ip_data['region']).lower()
+                    client_name = "ss_" + ip_data['countryCode']+ (f"_{ip_data['region']}" if ip_data['region'] else "")
+                    client_name = client_name.lower()
                     server_ip = ip_data['query']
-                    if(query!=server_ip):
+                    if query!=server_ip:
                         server_domain=query
                     else:
                         server_domain=server_ip
@@ -239,8 +288,8 @@ if __name__ == '__main__':
                 else:
                     print(ip_data)
                     print("获取失败，请检查输入是否有误")
-        except:
-            print("获取失败，请重试")
+        except Exception as e:
+            print("获取失败，请重试",e)
             pass
 
     server_num = 0
@@ -268,6 +317,8 @@ if __name__ == '__main__':
         client_offset = int(cl_offset)
     print(f"客户端SOCKS5端口为：{client_socks5_port + client_offset}")
 
+
+
     while True:
         print("请选择kcptun的参数")
         print("[0]." + get_tcp_param(0)["KCP_SERVER_PARAM"] + "   低丢包率下使用 [默认]")
@@ -288,23 +339,43 @@ if __name__ == '__main__':
             print("输入错误，请重新输入")
 
     while True:
-        print("请选择方案：")
+        print(f"请选择启动的bbr模块,回车保持默认,当前为{BBR_DESCRIPTION}")
+        for i in range(4):
+            print(f"[{i}]." + " ".join(get_bbr_module(i)))
+
+        input_select = input("请输入选项：")
+        if input_select in ("0", "1", "2","3"):
+            BBR_MODULE,BBR_DESCRIPTION=get_bbr_module(int(input_select))
+            print("当前bbr模块：" + " ".join(get_bbr_module(i)))
+            break
+        elif input_select == "":
+            print("当前bbr模块：" + BBR_MODULE +" "+ BBR_DESCRIPTION)
+            break
+        else:
+            print("输入错误，请重新输入")
+
+    while True:
+        print("请选择方案： BBR加速TCP, KCP为UDP 同时启用不影响")
         print("[0].退出")
-        print("[1].SS + Kcptun + UDPspeeder + 单UDP2raw [默认 游戏推荐]")
-        print("[2].SS + Kcptun + UDPspeeder")
-        print("[3].SS + Kcptun + UDPspeeder + 双UDP2raw")
-        print("[4].同时运行[2]和[3]")
+        bbr = BBR_DESCRIPTION if BBR_MODULE else ""
+        print(f"[1].SS + {bbr} ")
+        print(f"[2].SS + {bbr} + Kcptun + UDPspeeder + 单UDP2raw [默认 游戏推荐]")
+        print(f"[3].SS + {bbr} + Kcptun + UDPspeeder")
+        print(f"[4].SS + {bbr} + Kcptun + UDPspeeder + 双UDP2raw")
+        print(f"[5].同时运行[3]和[4]")
         input_select = input("请输入选项：")
         if input_select == "":
             ss_kcptun_udpspeeder_udp2raw(server_num=server_num, client_offset=client_offset)
             break
         if input_select == "1":
-            ss_kcptun_udpspeeder_udp2raw(server_num=server_num, client_offset=client_offset)
+            ss_bbr(server_num=server_num, client_offset=client_offset)
         if input_select == "2":
-            ss_kcptun_udpspeeder(server_num=server_num, client_offset=client_offset)
+            ss_kcptun_udpspeeder_udp2raw(server_num=server_num, client_offset=client_offset)
         if input_select == "3":
-            ss_kcptun_udpspeeder_dual_udp2raw(server_num=server_num, client_offset=client_offset)
+            ss_kcptun_udpspeeder(server_num=server_num, client_offset=client_offset)
         if input_select == "4":
+            ss_kcptun_udpspeeder_dual_udp2raw(server_num=server_num, client_offset=client_offset)
+        if input_select == "5":
             ss_kcptun_udpspeeder(server_num=server_num, client_offset=client_offset, suffix="")
             ss_kcptun_udpspeeder_udp2raw(server_num=server_num + 1, client_offset=client_offset + 1, suffix="_udp2raw")
         if input_select == "0":

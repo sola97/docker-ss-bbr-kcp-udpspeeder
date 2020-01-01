@@ -1,0 +1,32 @@
+#!/bin/bash
+
+exec 2>&1
+IFACE=$(ip -4 addr | awk '{if ($1 ~ /inet/ && $NF ~ /^[ve]/) {a=$NF}} END{print a}')
+BBR_COMMAND="-f -c /etc/rinetd.conf raw ${IFACE}"
+
+if [ -n "${BBR_MODULE}" ]; then
+    sleep 2
+    if [ "${SS_MODULE}" = "ss-server" ]; then
+        if [ ! -f "/usr/bin/${BBR_MODULE}" ]; then
+        echo -e "Warning: bbr module ${BBR_MODULE} doesn't exist, default to rinetd-bbr!"
+        BBR_MODULE="rinetd-bbr"
+        fi
+        if [ -z "${BBR_CONFIG}" ]; then
+            BBR_PORT=$(echo ${SS_CONFIG} |  sed -n "s/.*-p\s*\([0-9]*\).*/\1/p")
+            echo -e "${BBR_MODULE} enabled on port ${BBR_PORT}"
+            echo "0.0.0.0 ${BBR_PORT} 0.0.0.0 ${BBR_PORT} " > /etc/rinetd.conf
+        else
+            echo -e "${BBR_MODULE} using config:\n${BBR_CONFIG}"
+            echo ${BBR_CONFIG} > /etc/rinetd.conf
+        fi;
+        echo -e "starting ${BBR_MODULE}...  command: ${BBR_MODULE} ${BBR_COMMAND}"
+        exec chpst ${BBR_MODULE} ${BBR_COMMAND}
+    else
+        echo "bbr should be run on the server side."
+        exit 0
+    fi;
+else
+    echo "bbr not started."
+    exec sv stop bbr
+    exit 0
+fi

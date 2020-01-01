@@ -9,8 +9,9 @@ UDPSPEEDER_CONFIG=${UDPSPEEDER_CONFIG:-""}
 UDP2RAW_MODULE="udp2raw"
 UDP2RAW_CONFIG_ONE=${UDP2RAW_CONFIG_ONE:-""}
 UDP2RAW_CONFIG_TWO=${UDP2RAW_CONFIG_TWO:-""}
-
-while getopts "S:s:K:k:u:t:T:" OPT; do
+BBR_MODULE=${BBR_MODULE:-""}
+BBR_CONFIG=${BBR_CONFIG:-""}
+while getopts "S:s:K:k:u:t:T:b:B:" OPT; do
     case $OPT in
         S)
             SS_CONFIG=$OPTARG;;
@@ -26,6 +27,10 @@ while getopts "S:s:K:k:u:t:T:" OPT; do
             UDP2RAW_CONFIG_ONE=$OPTARG;;
         T)
             UDP2RAW_CONFIG_TWO=$OPTARG;;
+        b)
+            BBR_MODULE=$OPTARG;;
+        B)
+            BBR_CONFIG=$OPTARG;;
     esac
 done
 
@@ -38,5 +43,8 @@ export UDPSPEEDER_CONFIG=${UDPSPEEDER_CONFIG}
 export UDP2RAW_MODULE=${UDP2RAW_MODULE}
 export UDP2RAW_CONFIG_ONE=${UDP2RAW_CONFIG_ONE}
 export UDP2RAW_CONFIG_TWO=${UDP2RAW_CONFIG_TWO}
+export BBR_MODULE=${BBR_MODULE}
+export BBR_CONFIG=${BBR_CONFIG}
 
 exec runsvdir -P /etc/service
+
