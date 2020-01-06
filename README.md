@@ -89,8 +89,43 @@ ss-local -s $SS_SERVER_IP -p 6443 -b 0.0.0.0 -l 1080 -u -m aes-256-cfb -k passwd
 ```
 
 
+### 方案二 SS+v2ray-plugin(ws+tls)+BBR
+**方案说明**  
+SS + v2ray-plugin + websocket + tls + bbr
 
-### 方案二 SS+KCP+UDPspeeder+BBR(方案一)
+**Server 端**
+
+``` sh
+docker run -dt \
+--cap-add=NET_ADMIN \
+--restart=always \
+--name ssserver_https \
+-p 443:6443 \
+-p 443:6443/udp \
+-v /path/fullchain.crt:/etc/v2ray/v2ray.crt \ //手动挂载证书
+-v /path/private.key:/etc/v2ray/v2ray.key \
+sola97/shadowsocks \
+-s "ss-server" \
+-S "-s 0.0.0.0 -p 6443 -m aes-256-cfb -k passwd -u --fast-open 
+--plugin v2ray-plugin --plugin-opts=server;tls;host=$server_domain;cert=/etc/v2ray/v2ray.crt;key=/etc/v2ray/v2ray.key" \
+-b "rinetd-bbr"
+```
+
+**Client 端**
+
+``` sh
+docker run -dt \
+--restart=always \
+--name ssclient \
+-p 1080:1080 \
+-p 1080:1080/udp \
+sola97/shadowsocks \
+-s "ss-local" \
+-S "-s $server_domain -p 443 -b 0.0.0.0 -l 1080 -u -m aes-256-cfb -k passwd  --fast-open  --plugin v2ray-plugin --plugin-opts=tls;host=$server_domain"
+```
+
+
+### 方案三 SS+KCP+UDPspeeder+BBR(兼方案一)
 **方案说明**  
 
 [UDPspeeder kcptun finalspeed $$ 同时加速tcp和udp流量](https://github.com/wangyu-/UDPspeeder/wiki/UDPspeeder---kcptun-finalspeed---$$-%E5%90%8C%E6%97%B6%E5%8A%A0%E9%80%9Ftcp%E5%92%8Cudp%E6%B5%81%E9%87%8F)
@@ -151,10 +186,10 @@ speederv2 -c -l[::]:6500  -r$SS_SERVER_IP:6501 -f1:3,2:4,8:6,20:10 -k passwd
 ```
 
 
-### 方案三 SS+KCP+UDPspeeder+双Udp2raw
+### 方案四 SS+KCP+UDPspeeder+双Udp2raw
 **方案说明** 
 
-在方案二的基础上将两路UDP流量用udp2raw伪装成TCP（BBR无效）
+在方案三的基础上将两路UDP流量用udp2raw伪装成TCP
 
 kcptun client---->udp2raw client--------------->udp2raw server---->kcptun server  
 UDPspeeder client---->udp2raw client--------------->udp2raw server---->UDPspeeder server
@@ -249,6 +284,10 @@ docker run -dt --name ss -p 6443:6443 -p 6500:6500/udp -e SS_CONFIG="-s 0.0.0.0 
 
 
 **更新日志**
+
+- 2020-01-01 基于mritd/shadowsocks:3.3.3-20191229
+
+添加v2ray(ws+tls)的配置说明
 
 - 2020-01-01 添加基于LKL的BBR
 
