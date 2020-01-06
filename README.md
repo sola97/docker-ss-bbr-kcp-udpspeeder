@@ -285,7 +285,7 @@ docker run -dt --name ss -p 6443:6443 -p 6500:6500/udp -e SS_CONFIG="-s 0.0.0.0 
 
 **更新日志**
 
-- 2020-01-01 基于mritd/shadowsocks:3.3.3-20191229
+- 2020-01-06 基于mritd/shadowsocks:3.3.3-20191229
 
 添加v2ray(ws+tls)的配置说明
 

@@ -8,7 +8,7 @@ import base64
 
 # 密码和加密方式
 PASSWD = ""  # 为空时自动生成
-SS_ENCRYPT = "aes-256-cfb"  # 加密方式，并不是所有都兼容，有些会导致udp不通，需自行测试
+SS_ENCRYPT = "rc4-md5"  # 加密方式，并不是所有都和udpspeeder等兼容，会导致udp不通，需自行测试
 V2RAY_CERT_FILE=""
 V2RAY_KEY_FILE=""
 # 其他参数
@@ -153,7 +153,7 @@ def ss_bbr(server_num=0, client_offset=0, suffix=""):
     getURI(server_host, server_ss_port + server_num, f"{BBR_DESCRIPTION} 直连")
 
 def ss_v2ray_ws_tls_bbr(server_num=0, client_offset=0, suffix=""):
-    global server_ss_port
+    server_ss_port=globals().get("server_ss_port")
     server_suffix=server_num
     global V2RAY_CERT_FILE,V2RAY_KEY_FILE
     if not is_domain:
