@@ -12,7 +12,7 @@ if [ -n "${BBR_MODULE}" ]; then
         BBR_MODULE="rinetd-bbr"
         fi
         if [ -z "${BBR_CONFIG}" ]; then
-            BBR_PORT=$(echo ${SS_CONFIG} |  sed -n "s/.*-p\s*\([0-9]*\).*/\1/p")
+            BBR_PORT=$(echo ${SS_CONFIG} |  sed -nE "s/.*-p\s+([0-9]+)\s+.*/\1/p")
             echo -e "${BBR_MODULE} enabled on port ${BBR_PORT}"
             echo "0.0.0.0 ${BBR_PORT} 0.0.0.0 ${BBR_PORT} " > /etc/rinetd.conf
         else

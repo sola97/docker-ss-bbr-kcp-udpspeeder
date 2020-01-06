@@ -27,13 +27,16 @@ RUN  apk update && \
     chmod +x /bin/rinetd-*
 
 
-FROM mritd/shadowsocks:3.3.3-20191127
+FROM mritd/shadowsocks:3.3.3-20191229
 
 SHELL ["/bin/bash", "-c"]
 
 RUN apk update && \
     apk add --no-cache libstdc++ iptables && \
-    rm -rf /var/cache/apk/*
+    rm -rf /var/cache/apk/* && \
+    mkdir -p /etc/v2ray/ && \
+    touch /etc/v2ray/v2ray.crt && \
+    touch /etc/v2ray/v2ray.key
 COPY --from=builder /bin/udp2raw /usr/bin
 COPY --from=builder /bin/speederv2 /usr/bin
 COPY --from=builder /bin/rinetd-bbr /usr/bin
