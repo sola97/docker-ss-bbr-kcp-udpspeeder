@@ -27,7 +27,7 @@ RUN  apk update && \
     chmod +x /bin/rinetd-*
 
 
-FROM mritd/shadowsocks:3.3.3-20191229
+FROM mritd/shadowsocks:3.3.4-20200409
 
 SHELL ["/bin/bash", "-c"]
 

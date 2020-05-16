@@ -1,7 +1,7 @@
 ## Docker集成
 - **bbr、bbr魔改版(南琴浪)、pcc**
-- **shadowsocks-libev 版本: 3.3.3**
-- **kcptun 版本: 20191127**
+- **shadowsocks-libev 版本: 3.3.4**
+- **kcptun 版本: 20200409**
 - **udpspeederv2 版本: 20190121.0**
 - **udp2raw 版本: 20190716.test.0**
 
@@ -284,6 +284,9 @@ docker run -dt --name ss -p 6443:6443 -p 6500:6500/udp -e SS_CONFIG="-s 0.0.0.0 
 
 
 **更新日志**
+- 2020-05-16 基于mritd/shadowsocks:3.3.4-20200409
+
+更新 generate.py，添加UDPSpeeder的FEC参数选项
 
 - 2020-01-06 基于mritd/shadowsocks:3.3.3-20191229
 
