@@ -9,21 +9,23 @@ import base64
 # 密码和加密方式
 PASSWD = ""  # 为空时自动生成
 SS_ENCRYPT = "rc4-md5"  # 加密方式，并不是所有都和udpspeeder等兼容，会导致udp不通，需自行测试
+GROUP_NAME = "" #SSR客户端分组名称
+
+#v2ray-plugin
 V2RAY_CERT_FILE=""
 V2RAY_KEY_FILE=""
+
 # 其他参数
 SS_PARAM = "--fast-open"
-UDPSPEEDER_PARAM = "-f1:3,2:4,8:6,20:10"  # UDPspeeder的fec参数
 KCP_SERVER_PARAM = ""
 KCP_CLIENT_PARAM = ""
+UDPSPEEDER_FEC=""
+UDPSPEEDER_PARAM=""
 UDP2RAW_PARAM = "--cipher-mode xor --auth-mode simple --raw-mode faketcp  --fix-gro -a"
 BBR_MODULE = "rinetd-bbr"
 BBR_DESCRIPTION = "bbr原版"
-BBR_CONFIG = "0.0.0.0 6443 0.0.0.0 6443"
+
 # 服务端默认参数
-server_ip = None
-server_host =None
-is_domain=False
 server_ss_port = 6443  # 原生ss端口
 server_name = "ssserver"
 server_kcptun_port = 6500
@@ -36,7 +38,12 @@ client_ss_port = server_kcptun_port  # windows，安卓等SS客户端可以连�
 relay_host= "127.0.0.1" #运行docker客户端的IP或域名, 生成ss链接用于局域网/国内中转
 client_socks5_port = 1080
 
+#全局变量
+server_ip = None
+server_host =None
+is_domain=False
 ip_data=dict()
+
 # Linux下控制台输出颜色
 if os.name == 'nt':
     CBLUE = CRED = CEND = CYELLOW = CGREEN=""
@@ -47,16 +54,25 @@ else:
     CGREEN = '\033[92m'
     CEND = '\033[0m'
 
+def get_udp_fec_param():
+    return {
+        0:{"FEC":"-f1:1,2:2,5:3,10:4,17:5,25:6","desc":"丢包率7%的时候，降到0.48%"},
+        1:{"FEC":"-f1:2,2:3,5:4,8:5,11:6,15:7,20:8,24:9,29:10","desc":"丢包率12%的时候，降到0.50%"},
+        2:{"FEC":"-f1:3,2:4,8:6,20:10","desc":"丢包率15%的时候，降到0.49%"}
+    }
 
-def get_tcp_param(select):
+def get_tcp_param():
     return {
         0: {"KCP_SERVER_PARAM": "--mode fast2",
-            "KCP_CLIENT_PARAM": "--mode fast2"},  # 丢包少的情况，默认
+            "KCP_CLIENT_PARAM": "--mode fast2",
+            "desc":"低丢包率下使用"},
         1: {"KCP_SERVER_PARAM": "--mode fast --datashard 15 --parityshard 8",
-            "KCP_CLIENT_PARAM": "--mode fast --datashard 15 --parityshard 8"},  # 丢包率15%的时候，降到0.42%
+            "KCP_CLIENT_PARAM": "--mode fast --datashard 15 --parityshard 8",
+            "desc":"丢包率15%的时候，降到0.42%"},
         2: {"KCP_SERVER_PARAM": "--mode fast --datashard 15 --parityshard 15",
-            "KCP_CLIENT_PARAM": "--mode fast --datashard 15 --parityshard 15"},  # 丢包率30%的时候,降到0.63%
-    }[select]
+            "KCP_CLIENT_PARAM": "--mode fast --datashard 15 --parityshard 15",
+            "desc":"丢包率30%的时候,降到0.63%"},
+    }
 
 def get_bbr_module(select):
     return {
@@ -66,13 +82,13 @@ def get_bbr_module(select):
         3:["rinetd-pcc","pcc"]
     }[select]
 
-def getRandomPassword(num):
+def get_random_password(num):
     str = string.ascii_letters + string.digits
     key = random.sample(str, num)
     keys = "".join(key)
     return keys
 
-def getURI(server_ip,ss_port,description="",group="",plugin="",plugin_opts=""):
+def getURI(server_ip,ss_port,description="",group=GROUP_NAME,plugin="",plugin_opts=""):
     country=ip_data.get("country")
     city=ip_data.get("city","") if ip_data.get("city")!=ip_data.get("country") else ""
     remarks = " ".join([country,city,description])
@@ -102,22 +118,50 @@ def set_kcptun_param():
         return
     while True:
         print(f"{CGREEN}请选择kcptun的参数{CEND}")
-        print(f"{CGREEN}[0]." + get_tcp_param(0)["KCP_SERVER_PARAM"] + f"   低丢包率下使用 {CEND}{CYELLOW}[默认]{CEND}")
-        print(f"{CGREEN}[1]." + get_tcp_param(1)["KCP_SERVER_PARAM"] + f"   丢包率15%的时候，降到0.42%{CEND}")
-        print(f"{CGREEN}[2]." + get_tcp_param(2)["KCP_SERVER_PARAM"] + f"   丢包率30%的时候,降到0.63%{CEND}")
+        for index,v in get_tcp_param().items():
+            if index==0:
+                print(f"{CGREEN}[{index}]." + v["KCP_SERVER_PARAM"] + f"    {v['desc']} {CEND}{CYELLOW}[默认]{CEND}")
+            else:
+                print(f"{CGREEN}[{index}]." + v["KCP_SERVER_PARAM"] + f"    {v['desc']}")
+
         input_select = input("请输入选项：")
-        if input_select in ("0", "1", "2",):
-            KCP_SERVER_PARAM = get_tcp_param(int(input_select))['KCP_SERVER_PARAM']
-            KCP_CLIENT_PARAM = get_tcp_param(int(input_select))['KCP_CLIENT_PARAM']
+        if input_select == "":
+            KCP_SERVER_PARAM = get_tcp_param()[0]['KCP_SERVER_PARAM']
+            KCP_CLIENT_PARAM = get_tcp_param()[0]['KCP_CLIENT_PARAM']
             print(f"当前kcptun参数：{CYELLOW}{KCP_SERVER_PARAM}{CEND}")
             break
-        elif input_select == "":
-            KCP_SERVER_PARAM = get_tcp_param(0)['KCP_SERVER_PARAM']
-            KCP_CLIENT_PARAM = get_tcp_param(0)['KCP_CLIENT_PARAM']
+        elif re.match("^\d+$",input_select) and get_tcp_param().get(int(input_select),None):
+            index=int(input_select)
+            KCP_SERVER_PARAM = get_tcp_param()[index]['KCP_SERVER_PARAM']
+            KCP_CLIENT_PARAM = get_tcp_param()[index]['KCP_CLIENT_PARAM']
             print(f"当前kcptun参数：{CYELLOW}{KCP_SERVER_PARAM}{CEND}")
             break
         else:
             print(CRED+"输入错误，请重新输入"+CEND)
+
+def set_udpspeeder_fec_param():
+    global  UDPSPEEDER_FEC
+    if UDPSPEEDER_FEC:
+        return
+    while True:
+        print(f"{CGREEN}请选择udpspeeder的FEC参数{CEND}")
+        for index, v in get_udp_fec_param().items():
+            if index == 0:
+                print(f"{CGREEN}[{index}]." + v["FEC"] + f"    {v['desc']} {CEND}{CYELLOW}[默认]{CEND}")
+            else:
+                print(f"{CGREEN}[{index}]." + v["FEC"] + f"    {v['desc']}")
+        input_select = input("请输入选项：")
+        if input_select == "":
+            UDPSPEEDER_FEC = get_udp_fec_param()[0]['FEC']
+            print(f"当前FEC参数：{CYELLOW}{UDPSPEEDER_FEC}{CEND}")
+            break
+        elif re.match("^\d+$",input_select) and get_udp_fec_param().get(int(input_select),None):
+            index = int(input_select)
+            UDPSPEEDER_FEC = get_udp_fec_param()[index]['FEC']
+            print(f"当前FEC参数：{CYELLOW}{UDPSPEEDER_FEC}{CEND}")
+            break
+        else:
+            print(CRED + "输入错误，请重新输入" + CEND)
 
 def ss_bbr(server_num=0, client_offset=0, suffix=""):
     server_cmd = f'docker rm -f {server_name}_{server_num};\\\n\
@@ -125,22 +169,22 @@ def ss_bbr(server_num=0, client_offset=0, suffix=""):
        --cap-add=NET_ADMIN \\\n\
        --restart=always \\\n\
        --name {server_name}_{server_num} \\\n\
-       -p {server_ss_port + server_num}:6443 \\\n\
-       -p {server_ss_port + server_num}:6443/udp \\\n\
+       -p {server_ss_port + server_num}:{server_ss_port + server_num} \\\n\
+       -p {server_ss_port + server_num}:{server_ss_port + server_num}/udp \\\n\
         sola97/shadowsocks \\\n\
        -s "ss-server" \\\n\
-       -S "-s 0.0.0.0 -p 6443 -m {SS_ENCRYPT} -k {PASSWD} -u {SS_PARAM}\" \\\n\
+       -S "-s 0.0.0.0 -p {server_ss_port + server_num} -m {SS_ENCRYPT} -k {PASSWD} -u {SS_PARAM}\" \\\n\
        -b "{BBR_MODULE}" '
 
     client_cmd = f'docker rm -f {client_name}{suffix};\\\n\
        docker run -dt \\\n\
        --restart=always \\\n\
        --name {client_name}{suffix} \\\n\
-       -p {client_socks5_port + client_offset}:1080 \\\n\
-       -p {client_socks5_port + client_offset}:1080/udp \\\n\
+       -p {client_socks5_port + client_offset}:{client_socks5_port + client_offset} \\\n\
+       -p {client_socks5_port + client_offset}:{client_socks5_port + client_offset}/udp \\\n\
        sola97/shadowsocks \\\n\
        -s "ss-local" \\\n\
-       -S "-s {server_host} -p {server_ss_port + server_num} -b 0.0.0.0 -l 1080 -u -m {SS_ENCRYPT} -k {PASSWD}  {SS_PARAM}"'
+       -S "-s {server_host} -p {server_ss_port + server_num} -b 0.0.0.0 -l {client_socks5_port + client_offset} -u -m {SS_ENCRYPT} -k {PASSWD}  {SS_PARAM}"'
 
     print(f"{CRED}↓SS + BBR↓{CEND}")
     print(f"服务端：\n    {CBLUE}{server_cmd}{CEND}")
@@ -189,24 +233,24 @@ def ss_v2ray_ws_tls_bbr(server_num=0, client_offset=0, suffix=""):
        --cap-add=NET_ADMIN \\\n\
        --restart=always \\\n\
        --name {server_name}_{server_suffix} \\\n\
-       -p {server_ss_port + server_num }:6443 \\\n\
-       -p {server_ss_port + server_num }:6443/udp \\\n\
+       -p {server_ss_port + server_num }:{server_ss_port + server_num } \\\n\
+       -p {server_ss_port + server_num }:{server_ss_port + server_num }/udp \\\n\
        -v {V2RAY_CERT_FILE}:{cert_file_path} \\\n \
        -v {V2RAY_KEY_FILE}:{key_file_path} \\\n \
         sola97/shadowsocks \\\n\
        -s "ss-server" \\\n\
-       -S "-s 0.0.0.0 -p 6443 -m {SS_ENCRYPT} -k {PASSWD} -u {SS_PARAM} --plugin v2ray-plugin --plugin-opts=server;tls;host={server_host};cert={cert_file_path};key={key_file_path}\" \\\n\
+       -S "-s 0.0.0.0 -p {server_ss_port + server_num } -m {SS_ENCRYPT} -k {PASSWD} -u {SS_PARAM} --plugin v2ray-plugin --plugin-opts=server;tls;host={server_host};cert={cert_file_path};key={key_file_path}\" \\\n\
        -b "{BBR_MODULE}"'
 
     client_cmd = f'docker rm -f {client_name}{suffix};\\\n\
        docker run -dt \\\n\
        --restart=always \\\n\
        --name {client_name}{suffix} \\\n\
-       -p {client_socks5_port + client_offset}:1080 \\\n\
-       -p {client_socks5_port + client_offset}:1080/udp \\\n\
+       -p {client_socks5_port + client_offset}:{client_socks5_port + client_offset} \\\n\
+       -p {client_socks5_port + client_offset}:{client_socks5_port + client_offset}/udp \\\n\
        sola97/shadowsocks \\\n\
        -s "ss-local" \\\n\
-       -S "-s {server_host} -p {server_ss_port + server_num} -b 0.0.0.0 -l 1080 -u -m {SS_ENCRYPT} -k {PASSWD}  {SS_PARAM}  --plugin v2ray-plugin --plugin-opts=tls;host={server_host}"'
+       -S "-s {server_host} -p {server_ss_port + server_num} -b 0.0.0.0 -l {client_socks5_port + client_offset} -u -m {SS_ENCRYPT} -k {PASSWD}  {SS_PARAM}  --plugin v2ray-plugin --plugin-opts=tls;host={server_host}"'
 
     print(f"{CRED}↓SS + v2ray-plugin(ws+tls) + bbr↓{CEND}")
     print(f"服务端：\n    {CBLUE}{server_cmd}{CEND}")
@@ -221,21 +265,22 @@ def ss_v2ray_ws_tls_bbr(server_num=0, client_offset=0, suffix=""):
 
 def ss_kcptun_udpspeeder(server_num=0, client_offset=0, suffix=""):
     set_kcptun_param()
+    set_udpspeeder_fec_param()
     server_cmd = f'docker rm -f {server_name}_{server_num};\\\n\
     docker run -dt \\\n\
     --cap-add=NET_ADMIN \\\n\
     --restart=always \\\n\
     --name {server_name}_{server_num} \\\n\
-    -p {server_ss_port + server_num}:6443 \\\n\
-    -p {server_ss_port + server_num}:6443/udp \\\n\
-    -p {server_kcptun_port + server_num * 2}:6500/udp \\\n\
-    -p {server_udpspeeder_port + server_num * 2}:6501/udp \\\n\
+    -p {server_ss_port + server_num}:{server_ss_port + server_num} \\\n\
+    -p {server_ss_port + server_num}:{server_ss_port + server_num}/udp \\\n\
+    -p {server_kcptun_port + server_num * 2}:{server_kcptun_port + server_num * 2}/udp \\\n\
+    -p {server_udpspeeder_port + server_num * 2}:{server_udpspeeder_port + server_num * 2}/udp \\\n\
      sola97/shadowsocks \\\n\
     -s "ss-server" \\\n\
-    -S "-s 0.0.0.0 -p 6443 -m {SS_ENCRYPT} -k {PASSWD} -u {SS_PARAM}\" \\\n\
+    -S "-s 0.0.0.0 -p {server_ss_port + server_num} -m {SS_ENCRYPT} -k {PASSWD} -u {SS_PARAM}\" \\\n\
     -k "kcpserver" \\\n\
-    -K "-l 0.0.0.0:6500  -t 127.0.0.1:6443 {KCP_SERVER_PARAM} " \\\n\
-    -u "-s -l0.0.0.0:6501 -r 127.0.0.1:6443  {UDPSPEEDER_PARAM} -k {PASSWD}" \\\n\
+    -K "-l 0.0.0.0:{server_kcptun_port + server_num * 2}  -t 127.0.0.1:{server_ss_port + server_num} {KCP_SERVER_PARAM} " \\\n\
+    -u "-s -l0.0.0.0:{server_udpspeeder_port + server_num * 2} -r 127.0.0.1:{server_ss_port + server_num}  {UDPSPEEDER_FEC} {UDPSPEEDER_PARAM} -k {PASSWD}" \\\n\
     -b "{BBR_MODULE}" '
 
 
@@ -243,16 +288,16 @@ def ss_kcptun_udpspeeder(server_num=0, client_offset=0, suffix=""):
     docker run -dt \\\n\
     --restart=always \\\n\
     --name {client_name}{suffix} \\\n\
-    -p {client_ss_port + client_offset}:6500 \\\n\
-    -p {client_ss_port + client_offset}:6500/udp \\\n\
-    -p {client_socks5_port + client_offset}:1080 \\\n\
-    -p {client_socks5_port + client_offset}:1080/udp \\\n\
+    -p {client_ss_port + client_offset}:{client_ss_port + client_offset} \\\n\
+    -p {client_ss_port + client_offset}:{client_ss_port + client_offset}/udp \\\n\
+    -p {client_socks5_port + client_offset}:{client_socks5_port + client_offset} \\\n\
+    -p {client_socks5_port + client_offset}:{client_socks5_port + client_offset}/udp \\\n\
     sola97/shadowsocks \\\n\
     -s "ss-local" \\\n\
-    -S "-s 127.0.0.1 -p 6500 -b 0.0.0.0 -l 1080 -u -m {SS_ENCRYPT} -k {PASSWD}  {SS_PARAM}" \\\n\
+    -S "-s 127.0.0.1 -p {client_ss_port + client_offset} -b 0.0.0.0 -l {client_socks5_port + client_offset} -u -m {SS_ENCRYPT} -k {PASSWD}  {SS_PARAM}" \\\n\
     -k "kcpclient"  \\\n\
-    -K "-l :6500 -r {server_ip}:{server_kcptun_port + server_num * 2} {KCP_CLIENT_PARAM}" \\\n\
-    -u "-c -l[::]:6500  -r{server_ip}:{server_udpspeeder_port + server_num * 2} {UDPSPEEDER_PARAM} -k {PASSWD}"'
+    -K "-l :{client_ss_port + client_offset} -r {server_ip}:{server_kcptun_port + server_num * 2} {KCP_CLIENT_PARAM}" \\\n\
+    -u "-c -l[::]:{client_ss_port + client_offset}  -r{server_ip}:{server_udpspeeder_port + server_num * 2} {UDPSPEEDER_FEC} {UDPSPEEDER_PARAM} -k {PASSWD}"'
     print(f"{CRED}↓SS + Kcptun + UDPspeeder↓{CEND}")
     print(f"服务端：\n    {CBLUE}{server_cmd}{CEND}")
     print(f"客户端：\n    {CBLUE}{client_cmd}{CEND}")
@@ -269,23 +314,24 @@ def ss_kcptun_udpspeeder(server_num=0, client_offset=0, suffix=""):
 
 def ss_kcptun_udpspeeder_dual_udp2raw(server_num=0, client_offset=0, suffix=""):
     set_kcptun_param()
+    set_udpspeeder_fec_param()
     server_cmd = f'docker rm -f {server_name}_{server_num};\\\n\
     docker run -dt \\\n\
     --cap-add=NET_ADMIN \\\n\
     --restart=always \\\n\
     --name {server_name}_{server_num} \\\n\
-    -p {server_ss_port + server_num}:6443 \\\n\
-    -p {server_ss_port + server_num}:6443/udp \\\n\
-    -p {server_udp2raw_port + server_num * 2}:4096 \\\n\
-    -p {server_udp2raw_port + 1 + server_num * 2}:4097 \\\n\
+    -p {server_ss_port + server_num}:{server_ss_port + server_num} \\\n\
+    -p {server_ss_port + server_num}:{server_ss_port + server_num}/udp \\\n\
+    -p {server_udp2raw_port + server_num * 2}:{server_udp2raw_port + server_num * 2} \\\n\
+    -p {server_udp2raw_port + 1 + server_num * 2}:{server_udp2raw_port + 1 + server_num * 2} \\\n\
      sola97/shadowsocks \\\n\
     -s "ss-server" \\\n\
-    -S "-s 0.0.0.0 -p 6443 -m {SS_ENCRYPT} -k {PASSWD} -u --fast-open" \\\n\
+    -S "-s 0.0.0.0 -p {server_ss_port + server_num} -m {SS_ENCRYPT} -k {PASSWD} -u --fast-open" \\\n\
     -k "kcpserver" \\\n\
-    -K "-l 0.0.0.0:6500  -t 127.0.0.1:6443 {KCP_SERVER_PARAM} " \\\n\
-    -u "-s -l0.0.0.0:6501 -r 127.0.0.1:6443  {UDPSPEEDER_PARAM} -k {PASSWD}" \\\n\
-    -t "-s -l0.0.0.0:4096 -r 127.0.0.1:6500    -k {PASSWD} {UDP2RAW_PARAM}" \\\n\
-    -T "-s -l0.0.0.0:4097 -r 127.0.0.1:6501    -k {PASSWD} {UDP2RAW_PARAM}"\\\n\
+    -K "-l 0.0.0.0:6500  -t 127.0.0.1:{server_ss_port + server_num} {KCP_SERVER_PARAM} " \\\n\
+    -u "-s -l0.0.0.0:6501 -r 127.0.0.1:{server_ss_port + server_num}  {UDPSPEEDER_FEC} {UDPSPEEDER_PARAM} -k {PASSWD}" \\\n\
+    -t "-s -l0.0.0.0:{server_udp2raw_port + server_num * 2} -r 127.0.0.1:6500    -k {PASSWD} {UDP2RAW_PARAM}" \\\n\
+    -T "-s -l0.0.0.0:{server_udp2raw_port + 1 + server_num * 2} -r 127.0.0.1:6501    -k {PASSWD} {UDP2RAW_PARAM}"\\\n\
     -b "{BBR_MODULE}" '
 
     client_cmd = f'docker rm -f {client_name}{suffix};\\\n\
@@ -293,18 +339,18 @@ def ss_kcptun_udpspeeder_dual_udp2raw(server_num=0, client_offset=0, suffix=""):
     --cap-add=NET_ADMIN \\\n\
     --restart=always \\\n\
     --name {client_name}{suffix} \\\n\
-    -p {client_ss_port + client_offset}:6500 \\\n\
-    -p {client_ss_port + client_offset}:6500/udp \\\n\
-    -p {client_socks5_port + client_offset}:1080 \\\n\
-    -p {client_socks5_port + client_offset}:1080/udp \\\n\
+    -p {client_ss_port + client_offset}:{client_ss_port + client_offset} \\\n\
+    -p {client_ss_port + client_offset}:{client_ss_port + client_offset}/udp \\\n\
+    -p {client_socks5_port + client_offset}:{client_socks5_port + client_offset} \\\n\
+    -p {client_socks5_port + client_offset}:{client_socks5_port + client_offset}/udp \\\n\
     sola97/shadowsocks \\\n\
     -t "-c -l0.0.0.0:3333  -r{server_ip}:{server_udp2raw_port + server_num * 2}  -k {PASSWD} {UDP2RAW_PARAM}\" \\\n\
     -T "-c -l0.0.0.0:3334  -r{server_ip}:{server_udp2raw_port + 1 + server_num * 2}  -k {PASSWD} {UDP2RAW_PARAM}\" \\\n\
     -k "kcpclient"  \\\n\
-    -K "-l :6500 -r 127.0.0.1:3333 {KCP_CLIENT_PARAM}" \\\n\
-    -u "-c -l[::]:6500  -r127.0.0.1:3334 {UDPSPEEDER_PARAM} -k {PASSWD}" \\\n\
+    -K "-l :{client_ss_port + client_offset} -r 127.0.0.1:3333 {KCP_CLIENT_PARAM}" \\\n\
+    -u "-c -l[::]:{client_ss_port + client_offset}  -r127.0.0.1:3334 {UDPSPEEDER_FEC} {UDPSPEEDER_PARAM} -k {PASSWD}" \\\n\
     -s "ss-local" \\\n\
-    -S "-s 127.0.0.1 -p 6500 -b 0.0.0.0 -l 1080 -u -m {SS_ENCRYPT} -k {PASSWD}  {SS_PARAM}"'
+    -S "-s 127.0.0.1 -p {client_ss_port + client_offset} -b 0.0.0.0 -l {client_socks5_port + client_offset} -u -m {SS_ENCRYPT} -k {PASSWD}  {SS_PARAM}"'
     print(f"{CRED}↓SS + Kcptun + UDPspeeder + 双UDP2raw↓{CEND}")
     print(f"服务端：\n    {CBLUE}{server_cmd}{CEND}")
     print(f"客户端：\n    {CBLUE}{client_cmd}{CEND}")
@@ -321,22 +367,23 @@ def ss_kcptun_udpspeeder_dual_udp2raw(server_num=0, client_offset=0, suffix=""):
 
 def ss_kcptun_udpspeeder_udp2raw(server_num=0, client_offset=0, suffix=""):
     set_kcptun_param()
+    set_udpspeeder_fec_param()
     server_cmd = f'docker rm -f {server_name}_{server_num};\\\n\
     docker run -dt \\\n\
     --cap-add=NET_ADMIN \\\n\
     --restart=always \\\n\
     --name {server_name}_{server_num} \\\n\
-    -p {server_ss_port + server_num}:6443 \\\n\
-    -p {server_ss_port + server_num}:6443/udp \\\n\
-    -p {server_kcptun_port + server_num * 2}:6500/udp \\\n\
-    -p {server_udp2raw_port + 1 + server_num * 2}:4097 \\\n\
+    -p {server_ss_port + server_num}:{server_ss_port + server_num} \\\n\
+    -p {server_ss_port + server_num}:{server_ss_port + server_num}/udp \\\n\
+    -p {server_kcptun_port + server_num * 2}:{server_kcptun_port + server_num * 2}/udp \\\n\
+    -p {server_udp2raw_port + 1 + server_num * 2}:{server_udp2raw_port + 1 + server_num * 2} \\\n\
      sola97/shadowsocks \\\n\
     -s "ss-server" \\\n\
-    -S "-s 0.0.0.0 -p 6443 -m {SS_ENCRYPT} -k {PASSWD} -u {SS_PARAM}\" \\\n\
+    -S "-s 0.0.0.0 -p {server_ss_port + server_num} -m {SS_ENCRYPT} -k {PASSWD} -u {SS_PARAM}\" \\\n\
     -k "kcpserver" \\\n\
-    -K "-l 0.0.0.0:6500  -t 127.0.0.1:6443 {KCP_SERVER_PARAM} " \\\n\
-    -u "-s -l0.0.0.0:6501 -r 127.0.0.1:6443  {UDPSPEEDER_PARAM} -k {PASSWD}"  \\\n\
-    -t "-s -l0.0.0.0:4097 -r 127.0.0.1:6501    -k {PASSWD} {UDP2RAW_PARAM}"  \\\n\
+    -K "-l 0.0.0.0:{server_kcptun_port + server_num * 2}  -t 127.0.0.1:{server_ss_port + server_num} {KCP_SERVER_PARAM} " \\\n\
+    -u "-s -l0.0.0.0:{server_kcptun_port + 1 + server_num * 2} -r 127.0.0.1:{server_ss_port + server_num}  {UDPSPEEDER_FEC} {UDPSPEEDER_PARAM} -k {PASSWD}"  \\\n\
+    -t "-s -l0.0.0.0:{server_udp2raw_port + 1 + server_num * 2} -r 127.0.0.1:{server_kcptun_port + 1 + server_num * 2}    -k {PASSWD} {UDP2RAW_PARAM}"  \\\n\
     -b "{BBR_MODULE}" '
 
     client_cmd = f'docker rm -f {client_name}{suffix};\\\n\
@@ -344,17 +391,17 @@ def ss_kcptun_udpspeeder_udp2raw(server_num=0, client_offset=0, suffix=""):
     --cap-add=NET_ADMIN \\\n\
     --restart=always \\\n\
     --name {client_name}{suffix} \\\n\
-    -p {client_ss_port + client_offset}:6500 \\\n\
-    -p {client_ss_port + client_offset}:6500/udp \\\n\
-    -p {client_socks5_port + client_offset}:1080 \\\n\
-    -p {client_socks5_port + client_offset}:1080/udp \\\n\
+    -p {client_ss_port + client_offset}:{client_ss_port + client_offset} \\\n\
+    -p {client_ss_port + client_offset}:{client_ss_port + client_offset}/udp \\\n\
+    -p {client_socks5_port + client_offset}:{client_socks5_port + client_offset} \\\n\
+    -p {client_socks5_port + client_offset}:{client_socks5_port + client_offset}/udp \\\n\
     sola97/shadowsocks \\\n\
     -t "-c -l0.0.0.0:3334  -r{server_ip}:{server_udp2raw_port + 1 + server_num * 2}  -k {PASSWD} {UDP2RAW_PARAM}" \\\n\
     -k "kcpclient"  \\\n\
-    -K "-l :6500 -r {server_ip}:{server_kcptun_port + server_num * 2} {KCP_CLIENT_PARAM}" \\\n\
-    -u "-c -l[::]:6500  -r127.0.0.1:3334 {UDPSPEEDER_PARAM} -k {PASSWD}" \\\n\
+    -K "-l :{client_ss_port + client_offset} -r {server_ip}:{server_kcptun_port + server_num * 2} {KCP_CLIENT_PARAM}" \\\n\
+    -u "-c -l[::]:{client_ss_port + client_offset}  -r127.0.0.1:3334 {UDPSPEEDER_FEC} {UDPSPEEDER_PARAM} -k {PASSWD}" \\\n\
     -s "ss-local" \\\n\
-    -S "-s 127.0.0.1 -p 6500 -b 0.0.0.0 -l 1080 -u -m {SS_ENCRYPT} -k {PASSWD}  {SS_PARAM}"'
+    -S "-s 127.0.0.1 -p {client_ss_port + client_offset} -b 0.0.0.0 -l {client_socks5_port + client_offset} -u -m {SS_ENCRYPT} -k {PASSWD}  {SS_PARAM}"'
     print(f"{CRED}↓SS + Kcptun + UDPspeeder+ 单UDP2raw↓{CEND}")
     print(f"服务端：\n    {CBLUE}{server_cmd}{CEND}")
     print(f"客户端：\n    {CBLUE}{client_cmd}{CEND}")
@@ -371,7 +418,7 @@ def ss_kcptun_udpspeeder_udp2raw(server_num=0, client_offset=0, suffix=""):
 
 if __name__ == '__main__':
     if not PASSWD:
-        PASSWD = getRandomPassword(8)
+        PASSWD = get_random_password(8)
     while True:
         query = input(f"{CGREEN}请输入服务器IP或者域名(留空为获取本机IP)：{CEND}")
         try:
