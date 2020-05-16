@@ -215,14 +215,14 @@ def ss_v2ray_ws_tls_bbr(server_num=0, client_offset=0, suffix=""):
 
     if not V2RAY_CERT_FILE:
         while True:
-            V2RAY_CERT_FILE = input(f"{CGREEN}请输入要mount的证书crt文件的路径：{CEND}")
+            V2RAY_CERT_FILE = input(f"{CGREEN}请输入要mount的证书fullchain.cer文件的路径：{CEND}")
             confirm = input(f"{CGREEN}输入的路径为：{CEND}{CYELLOW}"+V2RAY_CERT_FILE+f" {CEND}{CGREEN}确认{CEND}{CYELLOW}Y{CEND}{CGREEN}/n{CEND}")
             if confirm=="" or confirm.lower().startswith("y"):
                 break
 
     if not V2RAY_KEY_FILE:
         while True:
-            V2RAY_KEY_FILE = input(f"{CGREEN}请输入要mount的证书key文件的路径：{CEND}")
+            V2RAY_KEY_FILE = input(f"{CGREEN}请输入要mount的证书{server_host}.key文件的路径：{CEND}")
             confirm = input(f"{CGREEN}输入的路径为：{CEND}{CYELLOW}"+V2RAY_KEY_FILE+f" {CEND}{CGREEN}确认{CEND}{CYELLOW}Y{CEND}{CGREEN}/n{CEND}")
             if confirm=="" or confirm.lower().startswith("y"):
                 break
@@ -235,8 +235,8 @@ def ss_v2ray_ws_tls_bbr(server_num=0, client_offset=0, suffix=""):
             break
         elif confirm.lower().startswith("n"):
             break
-    cert_file_path="/etc/v2ray/v2ray.crt"
-    key_file_path="/etc/v2ray/v2ray.key"
+    cert_file_path="/etc/v2ray-plugin/fullchain.cer"
+    key_file_path=f"/etc/v2ray-plugin/private.key"
     server_cmd = f'docker rm -f {server_name}_{server_suffix};\\\n\
        docker run -dt \\\n\
        --cap-add=NET_ADMIN \\\n\

@@ -102,12 +102,12 @@ docker run -dt \
 --name ssserver_https \
 -p 443:6443 \
 -p 443:6443/udp \
--v /path/fullchain.crt:/etc/v2ray/v2ray.crt \ //手动挂载证书
--v /path/private.key:/etc/v2ray/v2ray.key \
+-v /path/fullchain.cer:/etc/v2ray-plugin/fullchain.cer \ //域名的fullchain证书
+-v /path/private.key:/etc/v2ray-plugin/private.key \     //域名的private.key证书
 sola97/shadowsocks \
 -s "ss-server" \
 -S "-s 0.0.0.0 -p 6443 -m aes-256-cfb -k passwd -u --fast-open 
---plugin v2ray-plugin --plugin-opts=server;tls;host=$server_domain;cert=/etc/v2ray/v2ray.crt;key=/etc/v2ray/v2ray.key" \
+--plugin v2ray-plugin --plugin-opts=server;tls;host=$server_domain;cert=/etc/v2ray-plugin/fullchain.cer;key=/etc/v2ray-plugin/private.key" \
 -b "rinetd-bbr"
 ```
 
