@@ -5,7 +5,7 @@ import string
 import random
 from urllib import request,parse
 import base64
-
+import math
 # 密码和加密方式
 PASSWD = ""  # 为空时自动生成
 SS_ENCRYPT = "rc4-md5"  # 加密方式，并不是所有都和udpspeeder等兼容，会导致udp不通，需自行测试
@@ -56,9 +56,12 @@ else:
 
 def get_udp_fec_param():
     return {
-        0:{"FEC":"-f1:1,2:2,5:3,10:4,17:5,25:6","desc":"丢包率7%的时候，降到0.48%"},
-        1:{"FEC":"-f1:2,2:3,5:4,8:5,11:6,15:7,20:8,24:9,29:10","desc":"丢包率12%的时候，降到0.50%"},
-        2:{"FEC":"-f1:3,2:4,8:6,20:10","desc":"丢包率15%的时候，降到0.49%"}
+        0:{"FEC":"输入丢包率进行计算","desc":""},
+        1:{"FEC":"-f1:1,2:2,5:3,10:4,17:5,25:6","desc":"丢包率7%的时候，降到0.48%"},
+        2:{"FEC":"-f1:3,2:4,8:6,20:10","desc":"丢包率15%的时候，降到0.49%"},
+        3: {"FEC": "-f1:3,3:4,4:5,6:6,8:7,10:8,12:9,14:10,17:11,19:12,20:13", "desc": "丢包率20%的时候，降到0.27%"},
+        4: {"FEC": "-f1:3,2:4,3:5,4:6,5:7,7:8,8:9,10:10,12:11,13:12,15:13,17:14,19:15,20:16", "desc": "丢包率25%的时候，降到0.31%"},
+        5: {"FEC": "-f1:4,2:5,3:6,4:7,5:8,6:9,7:10,8:11,10:12,11:13,13:14,14:15,15:16,17:17,18:18,20:19", "desc": "丢包率30%的时候，降到0.49%"},
     }
 
 def get_tcp_param():
@@ -147,12 +150,18 @@ def set_udpspeeder_fec_param():
         print(f"{CGREEN}请选择udpspeeder的FEC参数{CEND}")
         for index, v in get_udp_fec_param().items():
             if index == 0:
-                print(f"{CGREEN}[{index}]." + v["FEC"] + f"    {v['desc']} {CEND}{CYELLOW}[默认]{CEND}")
+                print(f"{CGREEN}[{index}]." +  v["FEC"] + f"    {v['desc']} {CEND}{CYELLOW}[默认]{CEND}")
             else:
-                print(f"{CGREEN}[{index}]." + v["FEC"] + f"    {v['desc']}")
+                print(f"{CGREEN}[{index}]." + ",".join(v["FEC"].split(",")[:7]) + f"    {v['desc']}")
         input_select = input("请输入选项：")
-        if input_select == "":
-            UDPSPEEDER_FEC = get_udp_fec_param()[0]['FEC']
+        if input_select == "" or input_select == "0":
+            while True:
+                origin_loss = input(f"{CGREEN}请输入丢包率：{CEND}")
+                if re.match("^\d+$", origin_loss):
+                    origin_loss = int(origin_loss)
+                    break
+                else:print(f"{CRED}输入有误，请重新输入{CEND}")
+            UDPSPEEDER_FEC = calc_fec_param(0.5,origin_loss)
             print(f"当前FEC参数：{CYELLOW}{UDPSPEEDER_FEC}{CEND}")
             break
         elif re.match("^\d+$",input_select) and get_udp_fec_param().get(int(input_select),None):
@@ -414,6 +423,38 @@ def ss_kcptun_udpspeeder_udp2raw(server_num=0, client_offset=0, suffix=""):
     getURI(server_host, server_ss_port + server_num, f"{BBR_DESCRIPTION} 直连")
     print(f"通过{CRED}{relay_host}{CEND}的 Kcptun + UDPspeeder 的监听端口连接SS：")
     getURI(relay_host, client_ss_port + client_offset, '单udp2raw')
+
+
+#在丢包率为P的情况下，n个包中至少到达m个的概率
+def f0(n,m,p):
+    sum=0
+    for k in range(m,n+1):
+        sum+=C(k,n)*math.pow(1-p,k)*math.pow(p,n-k)
+    return sum
+
+def C(n,m):
+    return math.factorial(m)/(math.factorial(n)*math.factorial(m-n))
+
+def calc(x, y, p):
+    return 1-f0(x+y,x,p)
+
+def predict_loss(fec,packet_loss):
+    x,y=fec.split(":")
+    pred= calc(int(x), int(y), packet_loss / 100.0) * 100
+    print(f"{x}:{y} 可以将 {packet_loss}% 的丢包率降为 "+"%.2f%%"%pred)
+
+def calc_fec_param(target_loss,origin_loss,num=20):
+    str="-f"
+    origin_loss/=100.0
+    target_loss/=100.0
+    num+=1
+    map=dict()
+    for x in range(1,num):
+        for y in range(1,num):
+            if calc(x, y, origin_loss) < target_loss:
+                map[y]=x
+                break
+    return str+",".join(f"{map[k]}:{k}" for k in sorted(map.keys()))
 
 
 if __name__ == '__main__':
