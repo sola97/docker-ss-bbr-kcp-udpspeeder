@@ -1,11 +1,11 @@
 ## Docker集成
 - **bbr、bbr魔改版(南琴浪)、pcc**
 - **shadowsocks-libev 版本: 3.3.4**
-- **kcptun 版本: 20200409**
+- **kcptun 版本: 20200701**
 - **udpspeederv2 版本: 20190121.0**
 - **udp2raw 版本: 20190716.test.0**
 
-**基于[mtrid/shadowsocks](https://github.com/mritd/dockerfile/tree/master/shadowsocks)镜像制作**
+**基于[mritd/shadowsocks](https://github.com/mritd/dockerfile/tree/master/shadowsocks)镜像制作**
 
 ### 打开姿势
 1. 下载脚本 `curl -L https://raw.githubusercontent.com/sola97/docker-ss-kcp-udpspeeder/master/generate.py > generate.py`

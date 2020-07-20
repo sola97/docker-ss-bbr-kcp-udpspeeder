@@ -1,5 +1,5 @@
 
-FROM alpine:3.10 as builder
+FROM alpine:3.12 as builder
 
 LABEL maintainer="sola97 <my@sora.vip> "
 
@@ -21,13 +21,13 @@ RUN  apk update && \
     cd UDPspeeder && \
     make && \
     install speederv2 /bin && \
-    wget ${RINETD_BBR_POWERED_DOWNLOAD_URL} -O /bin/rinetd-bbr-powered && \
-    wget ${RINETD_BBR_DOWNLOAD_URL} -O /bin/rinetd-bbr && \ 
-    wget ${RINETD_PCC_DOWNLOAD_URL} -O /bin/rinetd-pcc && \ 
+    wget ${RINETD_BBR_POWERED_DOWNLOAD_URL} -qO /bin/rinetd-bbr-powered && \
+    wget ${RINETD_BBR_DOWNLOAD_URL} -qO /bin/rinetd-bbr && \ 
+    wget ${RINETD_PCC_DOWNLOAD_URL} -qO /bin/rinetd-pcc && \ 
     chmod +x /bin/rinetd-*
 
 
-FROM mritd/shadowsocks:3.3.4-20200409
+FROM mritd/shadowsocks:3.3.4-20200701
 
 SHELL ["/bin/bash", "-c"]
 

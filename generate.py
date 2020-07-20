@@ -22,8 +22,8 @@ KCP_CLIENT_PARAM = ""
 UDPSPEEDER_FEC=""
 UDPSPEEDER_PARAM=""
 UDP2RAW_PARAM = "--cipher-mode xor --auth-mode simple --raw-mode faketcp  --fix-gro -a"
-BBR_MODULE = "rinetd-bbr"
-BBR_DESCRIPTION = "bbr原版"
+BBR_MODULE = ""
+BBR_DESCRIPTION = "不启用"
 
 # 服务端默认参数
 server_ss_port = 6443  # 原生ss端口
