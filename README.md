@@ -4,6 +4,7 @@
 - **kcptun 版本: 20200701**
 - **udpspeederv2 版本: 20190121.0**
 - **udp2raw 版本: 20190716.test.0**
+- **tinyPortMapper 版本: 20180620.0**
 
 **基于[mritd/shadowsocks](https://github.com/mritd/dockerfile/tree/master/shadowsocks)镜像制作**
 
@@ -24,6 +25,7 @@
 - `-T` : second udp2raw 参数字符串
 - `-b` : 指定要启用的bbr模块
 - `-B` : `/etc/rinetd.conf` 配置文件内容
+- `-m` : tinyPortMappper的参数字符串
 ### 选项描述
 
 - `-s` : 参数后指定一个 shadowsocks 命令，如 ss-local，不写默认为 ss-server；该参数用于 shadowsocks 在客户端和服务端工作模式间切换，可选项如下: `ss-local`、`ss-manager`、`ss-nat`、`ss-redir`、`ss-server`、`ss-tunnel`
@@ -32,10 +34,10 @@
 - `-K` : 参数后指定一个 kcptun 的参数字符串，所有参数将被拼接到 `kcptun` 后;不写默认为禁用;
 - `-u` : 参数后指定一个 udpspeederv2 的参数字符串，所有参数将被拼接到 `udpspeederv2` 后;不写默认为禁用;
 - `-t` : 参数后指定一个 udp2raw 的参数字符串，所有参数将被拼接到 `udp2raw` 后;不写默认为禁用;
-- `-T` : 第二个 udp2raw 进程的参数字符串;同上,不写默认为禁用;
+- `-T` : 第二个 udp2raw 进程的参数字符串;同上，不写默认为禁用;
 - `-b` : 选择启用的bbr模块,可选的有`rinetd-bbr`（原版）、`rinetd-bbr-powered`（魔改版）、`rinetd-pcc`（另一个TCP拥塞控制算法）
 - `-B` : `/etc/rinetd.conf`的配置，留空自动根据ss监听端口生成，示例：`0.0.0.0 6443 0.0.0.0 6443`
-
+- `-m` : 参数后指定一个tinyPortMappper的参数字符串，所有参数将被拼接到 `tinymaper` 后;不写默认为禁用;
 
 
 
@@ -139,7 +141,7 @@ docker run -dt \
 --restart=always \
 --name ssserver \
 -p 6443:6443 \
--p 6443:6443/udp \
+-p 6443:6443/udp \ //暴露SS端口用于直连
 -p 6500:6500/udp \
 -p 6501:6501/udp \
  sola97/shadowsocks \
@@ -273,7 +275,7 @@ ss-local -s 127.0.0.1 -p 6500 -b 0.0.0.0 -l 1080 -u -m aes-256-cfb -k passwd  --
 |UDP2RAW_CONFIG_TWO|第二个 udp2raw 进程参数字符串|所有字符串内内容应当为 udp2raw 支持的选项参数,为空时不启动
 |BBR_MODULE|启用的bbr模块|`rinetd-bbr`、`rinetd-bbr-powered`、`rinetd-pcc`, 为空时不启动
 |BBR_CONFIG|`/etc/rinetd.conf`文件内容|所有字符串内内容应当为rinted支持的格式
-
+|TINY_MAPPER_CONFIG|tinyPortMapper参数字符串|所有字符串内内容应当为 tinyPortMapper支持的选项参数, 为空时不启动
 
 **使用时可指定环境变量，如下**
 
@@ -284,6 +286,10 @@ docker run -dt --name ss -p 6443:6443 -p 6500:6500/udp -e SS_CONFIG="-s 0.0.0.0 
 
 
 **更新日志**
+- 2020-07-21 基于mritd/shadowsocks:3.3.4-20200701
+
+添加TinyPortMapper
+
 - 2020-05-16 基于mritd/shadowsocks:3.3.4-20200409
 
 更新 generate.py，添加UDPSpeeder的FEC参数选项
