@@ -10,6 +10,7 @@ if [ -n "${SS_CONFIG}" ]; then
     echo -e  "starting Shadowsocks...  command: ${SS_MODULE} ${SS_CONFIG}"
     exec chpst -u shadowsocks ${SS_MODULE} ${SS_CONFIG}
 else
-    echo "Error: SS_CONFIG is empty, exit!"
-    exit 1
+    echo "Shadowsocks not started."
+    exec sv stop shadowsocks
+    exit 0
 fi

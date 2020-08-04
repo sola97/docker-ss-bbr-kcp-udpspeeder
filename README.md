@@ -2,8 +2,8 @@
 - **bbr、bbr魔改版(南琴浪)、pcc**
 - **shadowsocks-libev 版本: 3.3.4**
 - **kcptun 版本: 20200701**
-- **udpspeederv2 版本: 20190121.0**
-- **udp2raw 版本: 20190716.test.0**
+- **udpspeederv2 版本: 20200714.0**
+- **udp2raw 版本: 20200727.0**
 - **tinyPortMapper 版本: 20180620.0**
 
 **基于[mritd/shadowsocks](https://github.com/mritd/dockerfile/tree/master/shadowsocks)镜像制作**
@@ -15,7 +15,7 @@
 4. 手动粘贴运行
 
 ### 支持选项
-
+各模块可以单独启用
 - `-s` : 指定 shadowsocks 命令，默认为 `ss-server`
 - `-S` : shadowsocks-libev 参数字符串
 - `-k` : 指定 kcptun 命令，默认为 `kcpserver`
@@ -286,6 +286,10 @@ docker run -dt --name ss -p 6443:6443 -p 6500:6500/udp -e SS_CONFIG="-s 0.0.0.0 
 
 
 **更新日志**
+- 2020-08-05 基于mritd/shadowsocks:3.3.4-20200701
+
+取消SS为必须项，更新generate.py，添加udp2raw设置raw-mode
+
 - 2020-07-21 基于mritd/shadowsocks:3.3.4-20200701
 
 添加TinyPortMapper
