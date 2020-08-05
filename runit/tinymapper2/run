@@ -1,0 +1,12 @@
+#!/bin/bash
+
+exec 2>&1
+
+if [ -n "${TINY_MAPPER_CONFIG_TWO}" ]; then
+    echo -e "starting second tinyPortMapper...  command: ${TINY_MAPPER_MODULE} ${TINY_MAPPER_CONFIG_TWO} "
+    exec chpst ${TINY_MAPPER_MODULE} ${TINY_MAPPER_CONFIG_TWO}
+else
+    echo "second tinyPortMapper not started. "
+    exec sv stop tinymapper2
+    exit 0
+fi
