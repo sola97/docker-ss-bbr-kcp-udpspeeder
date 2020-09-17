@@ -59,6 +59,13 @@ else:
     CEND = '\033[0m'
 
 
+def get_network_mode():
+    return {
+        0: {"mode": "host", "desc": "支持 Full cone NAT"},
+        1: {"mode": "bridge", "desc": "桥接"}
+    }
+
+
 def get_udp2raw_mode():
     return {
         0: {"mode": "faketcp", "protocol": "", "desc": "绕过Qos等"},
@@ -136,6 +143,30 @@ def getURI(server_ip, ss_port, description="", group=GROUP_NAME, plugin="", plug
     ssr_data = f"{server_ip}:{ss_port}:origin:{SS_ENCRYPT}:plain:{password_encode}/?obfsparam=&remarks={remarks_b64_encode}&group={group_encode}"
     ssr_uri = base64.urlsafe_b64encode(ssr_data.encode('utf8')).decode("utf-8").strip("=")
     print(" " * 4 + CYELLOW + f"ssr://{ssr_uri}".strip("=") + CEND)
+
+
+def set_server_network_mode():
+    global server_network_mode
+    while True:
+        print(f"{CGREEN}请选择服务端的网络模式{CEND}")
+        for index, v in get_network_mode().items():
+            if index == 0:
+                print(f"{CGREEN}[{index}]." + v["mode"] + f"    {v['desc']} {CEND}{CYELLOW}[默认]{CEND}")
+            else:
+                print(f"{CGREEN}[{index}]." + v["mode"] + f"    {v['desc']}")
+
+        input_select = input("请输入选项：")
+        if input_select == "":
+            server_network_mode = get_network_mode()[0]['mode']
+            print(f"当前网络模式为--network={CYELLOW}{server_network_mode}{CEND}")
+            break
+        elif re.match("^\d+$", input_select) and get_network_mode().get(int(input_select), None):
+            index = int(input_select)
+            server_network_mode = get_network_mode()[index]['mode']
+            print(f"当前网络模式为--network={CYELLOW}{server_network_mode}{CEND}")
+            break
+        else:
+            print(CRED + "输入错误，请重新输入" + CEND)
 
 
 def set_kcptun_param():
@@ -578,6 +609,8 @@ if __name__ == '__main__':
     if re.match("^\d+$", cl_offset):
         client_offset = int(cl_offset)
     print(f"客户端SOCKS5端口为：{CYELLOW}{client_socks5_port + client_offset}{CEND}")
+
+    set_server_network_mode()
 
     while True:
         print(f"{CGREEN}请选择启动的bbr模块,回车保持默认,当前为{CEND}{CYELLOW}{BBR_DESCRIPTION}{CEND}")
