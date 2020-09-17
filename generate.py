@@ -34,7 +34,7 @@ server_name = "ssserver"
 server_kcptun_port = 6500
 server_udpspeeder_port = 6501
 server_udp2raw_port = 4096
-server_network_mode = "host" #用于支持Full cone NAT
+server_network_mode = "host"  # 用于支持Full cone NAT
 # 客户端默认参数
 client_name = "ssclient"
 client_ss_port = server_kcptun_port  # windows，安卓等SS客户端可以连这个端口使用
@@ -315,6 +315,7 @@ def ss_v2ray_ws_tls_bbr(server_num=0, client_offset=0, suffix=""):
        -p {client_socks5_port + client_offset}:{client_socks5_port + client_offset} \\\n\
        -p {client_socks5_port + client_offset}:{client_socks5_port + client_offset}/udp \\\n\
        sola97/shadowsocks \\\n\
+       -m "-l0.0.0.0:{client_socks5_port + client_offset}  -r{server_ip}:{server_ss_port + server_num} -u" \\\n\
        -s "ss-local" \\\n\
        -S "-s {server_host} -p {server_ss_port + server_num} -b 0.0.0.0 -l {client_socks5_port + client_offset} -u -m {SS_ENCRYPT} -k {PASSWD}  {SS_PARAM}  --plugin v2ray-plugin --plugin-opts=tls;host={server_host}"'
 
