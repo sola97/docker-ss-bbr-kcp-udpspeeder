@@ -24,7 +24,7 @@ UDPSPEEDER_FEC = ""
 UDPSPEEDER_PARAM = ""
 UDP2RAW_PARAM = "--cipher-mode xor --auth-mode simple --raw-mode {mode}  --fix-gro -a"
 UDP2RAW_MODE = ""
-UDP2RAW_PORT_PROTOCOL = ""  #用于docker端口 tcp为""，udp为"/udp"
+UDP2RAW_PORT_PROTOCOL = ""  # 用于docker端口 tcp为""，udp为"/udp"
 BBR_MODULE = ""
 BBR_DESCRIPTION = "不启用"
 
@@ -34,13 +34,13 @@ server_name = "ssserver"
 server_kcptun_port = 6500
 server_udpspeeder_port = 6501
 server_udp2raw_port = 4096
-
+server_network_mode = "host" #用于支持Full cone NAT
 # 客户端默认参数
 client_name = "ssclient"
 client_ss_port = server_kcptun_port  # windows，安卓等SS客户端可以连这个端口使用
 relay_host = "127.0.0.1"  # 运行docker客户端的IP或域名, 生成ss链接用于局域网/国内中转
 client_socks5_port = 1080
-
+client_network_mode = "bridge"
 # 全局变量
 
 server_ip = None
@@ -61,16 +61,18 @@ else:
 
 def get_udp2raw_mode():
     return {
-        0: {"mode": "faketcp", "protocol": "","desc":"绕过Qos等"},
-        1: {"mode": "udp", "protocol": "/udp","desc":"心跳保活、断线重连等"}
+        0: {"mode": "faketcp", "protocol": "", "desc": "绕过Qos等"},
+        1: {"mode": "udp", "protocol": "/udp", "desc": "心跳保活、断线重连等"}
     }
+
 
 def get_udp_fec_param():
     return {
         0: {"FEC": "输入丢包率进行计算", "desc": ""},
         1: {"FEC": "-f1:1,2:2,5:3,10:4,17:5,25:6", "desc": "丢包率7%的时候，降到0.48%"},
         2: {"FEC": "-f1:3,2:4,8:6,20:10", "desc": "丢包率15%的时候，降到0.49%"},
-        3: {"FEC": "-f1:3,3:4,4:5,6:6,8:7,10:8,12:9,14:10,17:11,19:12,20:13", "desc": "丢包率20%的时候，降到0.27%"},
+        3: {"FEC": "-f1:3,3:4,4:5,6:6,8:7,10:8,12:9,14:10,17:11,19:12,20:13",
+            "desc": "丢包率20%的时候，降到0.27%"},
         4: {"FEC": "-f1:3,2:4,3:5,4:6,5:7,7:8,8:9,10:10,12:11,13:12,15:13,17:14,19:15,20:16",
             "desc": "丢包率25%的时候，降到0.31%"},
         5: {"FEC": "-f1:4,2:5,3:6,4:7,5:8,6:9,7:10,8:11,10:12,11:13,13:14,14:15,15:16,17:17,18:18,20:19",
@@ -197,7 +199,7 @@ def set_udpspeeder_fec_param():
 
 
 def set_udp2raw_mode_param():
-    global UDP2RAW_MODE,UDP2RAW_PORT_PROTOCOL
+    global UDP2RAW_MODE, UDP2RAW_PORT_PROTOCOL
     while True:
         print(f"{CGREEN}请选择UDP2raw的 --raw-mode{CEND}")
         for index, v in get_udp2raw_mode().items():
@@ -211,7 +213,7 @@ def set_udp2raw_mode_param():
             UDP2RAW_PORT_PROTOCOL = get_udp2raw_mode().get(0)['protocol']
             print(f"当前UDP2raw参数：{CYELLOW}{UDP2RAW_PARAM.format(mode=UDP2RAW_MODE)}{CEND}")
             break
-        elif re.match("^\d+$", input_select) and get_udp2raw_mode().get(int(input_select),None):
+        elif re.match("^\d+$", input_select) and get_udp2raw_mode().get(int(input_select), None):
             UDP2RAW_MODE = get_udp2raw_mode().get(int(input_select))['mode']
             UDP2RAW_PORT_PROTOCOL = get_udp2raw_mode().get(int(input_select))['protocol']
             print(f"当前UDP2raw参数：{CYELLOW}{UDP2RAW_PARAM.format(mode=UDP2RAW_MODE)}{CEND}")
@@ -224,6 +226,7 @@ def ss_bbr(server_num=0, client_offset=0, suffix=""):
     server_cmd = f'docker rm -f {server_name}_{server_num};\\\n\
        docker run -dt \\\n\
        --cap-add=NET_ADMIN \\\n\
+       --network={server_network_mode} \\\n\
        --restart=always \\\n\
        --name {server_name}_{server_num} \\\n\
        -p {server_ss_port + server_num}:{server_ss_port + server_num} \\\n\
@@ -235,6 +238,7 @@ def ss_bbr(server_num=0, client_offset=0, suffix=""):
 
     client_cmd = f'docker rm -f {client_name}{suffix};\\\n\
        docker run -dt \\\n\
+       --network={client_network_mode} \\\n\
        --restart=always \\\n\
        --name {client_name}{suffix} \\\n\
        -p {client_socks5_port + client_offset}:{client_socks5_port + client_offset} \\\n\
@@ -292,19 +296,21 @@ def ss_v2ray_ws_tls_bbr(server_num=0, client_offset=0, suffix=""):
        docker run -dt \\\n\
        --cap-add=NET_ADMIN \\\n\
        --restart=always \\\n\
+       --network={server_network_mode} \\\n\
        --name {server_name}_{server_suffix} \\\n\
-       -p {server_ss_port + server_num }:{server_ss_port + server_num } \\\n\
-       -p {server_ss_port + server_num }:{server_ss_port + server_num }/udp \\\n\
+       -p {server_ss_port + server_num}:{server_ss_port + server_num} \\\n\
+       -p {server_ss_port + server_num}:{server_ss_port + server_num}/udp \\\n\
        -v {V2RAY_CERT_FILE}:{cert_file_path} \\\n \
        -v {V2RAY_KEY_FILE}:{key_file_path} \\\n \
         sola97/shadowsocks \\\n\
        -s "ss-server" \\\n\
-       -S "-s 0.0.0.0 -p {server_ss_port + server_num } -m {SS_ENCRYPT} -k {PASSWD} -u {SS_PARAM} --plugin v2ray-plugin --plugin-opts=server;tls;host={server_host};cert={cert_file_path};key={key_file_path}\" \\\n\
+       -S "-s 0.0.0.0 -p {server_ss_port + server_num} -m {SS_ENCRYPT} -k {PASSWD} -u {SS_PARAM} --plugin v2ray-plugin --plugin-opts=server;tls;host={server_host};cert={cert_file_path};key={key_file_path}\" \\\n\
        -b "{BBR_MODULE}"'
 
     client_cmd = f'docker rm -f {client_name}{suffix};\\\n\
        docker run -dt \\\n\
        --restart=always \\\n\
+       --network={client_network_mode} \\\n\
        --name {client_name}{suffix} \\\n\
        -p {client_socks5_port + client_offset}:{client_socks5_port + client_offset} \\\n\
        -p {client_socks5_port + client_offset}:{client_socks5_port + client_offset}/udp \\\n\
@@ -316,7 +322,7 @@ def ss_v2ray_ws_tls_bbr(server_num=0, client_offset=0, suffix=""):
     print(f"服务端：\n    {CBLUE}{server_cmd}{CEND}")
     print(f"客户端：\n    {CBLUE}{client_cmd}{CEND}")
     print(f"{CRED}↑SS + v2ray-plugin(ws+tls) + bbr↑{CEND}")
-    print(f"服务端SS端口：{server_ss_port + server_num }")
+    print(f"服务端SS端口：{server_ss_port + server_num}")
     print(f"客户端SOCKS5端口：{client_socks5_port + client_offset}")
     print("密码为：" + PASSWD)
     print(f"导出链接：")
@@ -330,6 +336,7 @@ def ss_kcptun_udpspeeder(server_num=0, client_offset=0, suffix=""):
     server_cmd = f'docker rm -f {server_name}_{server_num};\\\n\
     docker run -dt \\\n\
     --cap-add=NET_ADMIN \\\n\
+    --network={server_network_mode} \\\n\
     --restart=always \\\n\
     --name {server_name}_{server_num} \\\n\
     -p {server_ss_port + server_num}:{server_ss_port + server_num} \\\n\
@@ -346,6 +353,7 @@ def ss_kcptun_udpspeeder(server_num=0, client_offset=0, suffix=""):
 
     client_cmd = f'docker rm -f {client_name}{suffix};\\\n\
     docker run -dt \\\n\
+    --network={client_network_mode} \\\n\
     --restart=always \\\n\
     --name {client_name}{suffix} \\\n\
     -p {client_ss_port + client_offset}:{client_ss_port + client_offset} \\\n\
@@ -357,7 +365,7 @@ def ss_kcptun_udpspeeder(server_num=0, client_offset=0, suffix=""):
     -S "-s 127.0.0.1 -p {client_ss_port + client_offset} -b 0.0.0.0 -l {client_socks5_port + client_offset} -u -m {SS_ENCRYPT} -k {PASSWD}  {SS_PARAM}" \\\n\
     -k "kcpclient"  \\\n\
     -K "-l :{client_ss_port + client_offset} -r {server_ip}:{server_kcptun_port + server_num * 2} {KCP_CLIENT_PARAM}" \\\n\
-    -u "-c -l[::]:{client_ss_port + client_offset}  -r{server_ip}:{server_udpspeeder_port + server_num * 2} {UDPSPEEDER_FEC} {UDPSPEEDER_PARAM} -k {PASSWD}"'
+    -u "-c -l0.0.0.0:{client_ss_port + client_offset}  -r{server_ip}:{server_udpspeeder_port + server_num * 2} {UDPSPEEDER_FEC} {UDPSPEEDER_PARAM} -k {PASSWD}"'
     print(f"{CRED}↓SS + Kcptun + UDPspeeder↓{CEND}")
     print(f"服务端：\n    {CBLUE}{server_cmd}{CEND}")
     print(f"客户端：\n    {CBLUE}{client_cmd}{CEND}")
@@ -366,7 +374,7 @@ def ss_kcptun_udpspeeder(server_num=0, client_offset=0, suffix=""):
     print(f"客户端本地映射SS端口：{client_ss_port + client_offset}\n"
           f"SOCKS5端口：{client_socks5_port + client_offset}")
     print("密码为：" + PASSWD)
-    print(f"{BBR_DESCRIPTION + '加速' if BBR_MODULE else '' }直连服务端SS：")
+    print(f"{BBR_DESCRIPTION + '加速' if BBR_MODULE else ''}直连服务端SS：")
     getURI(server_host, server_ss_port + server_num, f"{BBR_DESCRIPTION} 直连")
     print(f"通过{CRED}{relay_host}{CEND}的 Kcptun + UDPspeeder 的监听端口连接SS：")
     getURI(relay_host, client_ss_port + client_offset, '')
@@ -379,6 +387,7 @@ def ss_kcptun_udpspeeder_dual_udp2raw(server_num=0, client_offset=0, suffix=""):
     server_cmd = f'docker rm -f {server_name}_{server_num};\\\n\
     docker run -dt \\\n\
     --cap-add=NET_ADMIN \\\n\
+    --network={server_network_mode} \\\n\
     --restart=always \\\n\
     --name {server_name}_{server_num} \\\n\
     -p {server_ss_port + server_num}:{server_ss_port + server_num} \\\n\
@@ -398,6 +407,7 @@ def ss_kcptun_udpspeeder_dual_udp2raw(server_num=0, client_offset=0, suffix=""):
     client_cmd = f'docker rm -f {client_name}{suffix};\\\n\
     docker run -dt \\\n\
     --cap-add=NET_ADMIN \\\n\
+    --network={client_network_mode} \\\n\
     --restart=always \\\n\
     --name {client_name}{suffix} \\\n\
     -p {client_ss_port + client_offset}:{client_ss_port + client_offset} \\\n\
@@ -409,7 +419,7 @@ def ss_kcptun_udpspeeder_dual_udp2raw(server_num=0, client_offset=0, suffix=""):
     -T "-c -l0.0.0.0:3334  -r{server_ip}:{server_udp2raw_port + 1 + server_num * 2}  -k {PASSWD} {UDP2RAW_PARAM.format(mode=UDP2RAW_MODE)}\" \\\n\
     -k "kcpclient"  \\\n\
     -K "-l :{client_ss_port + client_offset} -r 127.0.0.1:3333 {KCP_CLIENT_PARAM}" \\\n\
-    -u "-c -l[::]:{client_ss_port + client_offset}  -r127.0.0.1:3334 {UDPSPEEDER_FEC} {UDPSPEEDER_PARAM} -k {PASSWD}" \\\n\
+    -u "-c -l0.0.0.0:{client_ss_port + client_offset}  -r127.0.0.1:3334 {UDPSPEEDER_FEC} {UDPSPEEDER_PARAM} -k {PASSWD}" \\\n\
     -s "ss-local" \\\n\
     -S "-s 127.0.0.1 -p {client_ss_port + client_offset} -b 0.0.0.0 -l {client_socks5_port + client_offset} -u -m {SS_ENCRYPT} -k {PASSWD}  {SS_PARAM}"'
     print(f"{CRED}↓SS + Kcptun + UDPspeeder + 双UDP2raw↓{CEND}")
@@ -420,7 +430,7 @@ def ss_kcptun_udpspeeder_dual_udp2raw(server_num=0, client_offset=0, suffix=""):
     print(f"客户端本地映射SS端口：{client_ss_port + client_offset}\n"
           f"SOCKS5端口：{client_socks5_port + client_offset}")
     print("密码为：" + PASSWD)
-    print(f"{BBR_DESCRIPTION + '加速' if BBR_MODULE else '' }直连服务端SS：")
+    print(f"{BBR_DESCRIPTION + '加速' if BBR_MODULE else ''}直连服务端SS：")
     getURI(server_host, server_ss_port + server_num, f"{BBR_DESCRIPTION} 直连")
     print(f"通过{CRED}{relay_host}{CEND}的 Kcptun + UDPspeeder 的监听端口连接SS：")
     getURI(relay_host, client_ss_port + client_offset, '双udp2raw')
@@ -433,6 +443,7 @@ def ss_kcptun_udpspeeder_udp2raw(server_num=0, client_offset=0, suffix=""):
     server_cmd = f'docker rm -f {server_name}_{server_num};\\\n\
     docker run -dt \\\n\
     --cap-add=NET_ADMIN \\\n\
+    --network={server_network_mode} \\\n\
     --restart=always \\\n\
     --name {server_name}_{server_num} \\\n\
     -p {server_ss_port + server_num}:{server_ss_port + server_num} \\\n\
@@ -451,6 +462,7 @@ def ss_kcptun_udpspeeder_udp2raw(server_num=0, client_offset=0, suffix=""):
     client_cmd = f'docker rm -f {client_name}{suffix};\\\n\
     docker run -dt \\\n\
     --cap-add=NET_ADMIN \\\n\
+    --network={client_network_mode} \\\n\
     --restart=always \\\n\
     --name {client_name}{suffix} \\\n\
     -p {client_ss_port + client_offset}:{client_ss_port + client_offset} \\\n\
@@ -461,7 +473,7 @@ def ss_kcptun_udpspeeder_udp2raw(server_num=0, client_offset=0, suffix=""):
     -t "-c -l0.0.0.0:3334  -r{server_ip}:{server_udp2raw_port + 1 + server_num * 2}  -k {PASSWD} {UDP2RAW_PARAM.format(mode=UDP2RAW_MODE)}" \\\n\
     -k "kcpclient"  \\\n\
     -K "-l :{client_ss_port + client_offset} -r {server_ip}:{server_kcptun_port + server_num * 2} {KCP_CLIENT_PARAM}" \\\n\
-    -u "-c -l[::]:{client_ss_port + client_offset}  -r127.0.0.1:3334 {UDPSPEEDER_FEC} {UDPSPEEDER_PARAM} -k {PASSWD}" \\\n\
+    -u "-c -l0.0.0.0:{client_ss_port + client_offset}  -r127.0.0.1:3334 {UDPSPEEDER_FEC} {UDPSPEEDER_PARAM} -k {PASSWD}" \\\n\
     -s "ss-local" \\\n\
     -S "-s 127.0.0.1 -p {client_ss_port + client_offset} -b 0.0.0.0 -l {client_socks5_port + client_offset} -u -m {SS_ENCRYPT} -k {PASSWD}  {SS_PARAM}"'
     print(f"{CRED}↓SS + Kcptun + UDPspeeder+ 单UDP2raw↓{CEND}")
@@ -472,7 +484,7 @@ def ss_kcptun_udpspeeder_udp2raw(server_num=0, client_offset=0, suffix=""):
     print(f"客户端本地映射SS端口：{client_ss_port + client_offset}\n"
           f"SOCKS5端口：{client_socks5_port + client_offset}")
     print("密码为：" + PASSWD)
-    print(f"{BBR_DESCRIPTION + '加速' if BBR_MODULE else '' } 直连服务端SS：")
+    print(f"{BBR_DESCRIPTION + '加速' if BBR_MODULE else ''} 直连服务端SS：")
     getURI(server_host, server_ss_port + server_num, f"{BBR_DESCRIPTION} 直连")
     print(f"通过{CRED}{relay_host}{CEND}的 Kcptun + UDPspeeder 的监听端口连接SS：")
     getURI(relay_host, client_ss_port + client_offset, '单udp2raw')
@@ -585,7 +597,7 @@ if __name__ == '__main__':
     while True:
         print(f"{CGREEN}请选择方案：")
         print("[0].退出")
-        bbr = "+ "+ BBR_DESCRIPTION if BBR_MODULE else ""
+        bbr = "+ " + BBR_DESCRIPTION if BBR_MODULE else ""
         print(f"[1].SS {bbr}")
         print(f"[2].SS {bbr}+ v2ray-plugin(ws+tls)")
         print(f"[3].SS {bbr}+ Kcptun + UDPspeeder + 单UDP2raw {CEND}{CYELLOW}[默认 游戏推荐]{CEND}{CGREEN}")
