@@ -288,7 +288,11 @@ docker run -dt --name ss -p 6443:6443 -p 6500:6500/udp -e SS_CONFIG="-s 0.0.0.0 
 
 
 **更新日志**
-- 2020-08-05 基于mritd/shadowsocks:3.3.4-20200701
+- 2020-09-17
+
+更新generate.py，设置服务端为--network=host，用于支持Full cone NAT
+
+- 2020-08-05
 
 取消SS为必须项，更新generate.py，添加udp2raw设置raw-mode
 
