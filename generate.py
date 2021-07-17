@@ -97,10 +97,7 @@ def get_tcp_param():
             "desc": "丢包率15%的时候，降到0.42%"},
         2: {"KCP_SERVER_PARAM": "--mode fast --datashard 15 --parityshard 15 --mtu 1300",
             "KCP_CLIENT_PARAM": "--mode fast --datashard 15 --parityshard 15 --mtu 1300",
-            "desc": "丢包率30%的时候,降到0.63%"},
-        3: {"KCP_SERVER_PARAM": "",
-            "KCP_CLIENT_PARAM": "",
-            "desc": "当前参数"},
+            "desc": "丢包率30%的时候,降到0.63%"}
     }
 
 
@@ -287,6 +284,8 @@ def ss_bbr(server_num=0, client_offset=0, suffix=""):
     print("密码为：" + PASSWD)
     print(f"导出链接：")
     getURI(server_host, server_ss_port + server_num, f"{BBR_DESCRIPTION} 直连")
+    write_compose_file(server_cmd, subfolder="ss-bbr")
+    write_compose_file(client_cmd, subfolder="ss-bbr")
 
 
 def ss_v2ray_ws_tls_bbr(server_num=0, client_offset=0, suffix=""):
@@ -360,6 +359,8 @@ def ss_v2ray_ws_tls_bbr(server_num=0, client_offset=0, suffix=""):
     print(f"导出链接：")
     getURI(server_host, server_ss_port + server_num, f"{BBR_DESCRIPTION} + v2ray(ws+tls)", "", "v2ray-plugin",
            f"tls;host={server_host}")
+    write_compose_file(server_cmd, subfolder="ss-v2ray")
+    write_compose_file(client_cmd, subfolder="ss-v2ray")
 
 
 def ss_kcptun_udpspeeder(server_num=0, client_offset=0, suffix=""):
@@ -410,6 +411,8 @@ def ss_kcptun_udpspeeder(server_num=0, client_offset=0, suffix=""):
     getURI(server_host, server_ss_port + server_num, f"{BBR_DESCRIPTION} 直连")
     print(f"通过{CRED}{relay_host}{CEND}的 Kcptun + UDPspeeder 的监听端口连接SS：")
     getURI(relay_host, client_ss_port + client_offset, '')
+    write_compose_file(server_cmd, subfolder="ss-kcp-udp")
+    write_compose_file(client_cmd, subfolder="ss-kcp-udp")
 
 
 def ss_kcptun_udpspeeder_dual_udp2raw(server_num=0, client_offset=0, suffix=""):
@@ -466,6 +469,8 @@ def ss_kcptun_udpspeeder_dual_udp2raw(server_num=0, client_offset=0, suffix=""):
     getURI(server_host, server_ss_port + server_num, f"{BBR_DESCRIPTION} 直连")
     print(f"通过{CRED}{relay_host}{CEND}的 Kcptun + UDPspeeder 的监听端口连接SS：")
     getURI(relay_host, client_ss_port + client_offset, '双udp2raw')
+    write_compose_file(server_cmd, subfolder="ss-kcp-udp-dual2raw")
+    write_compose_file(client_cmd, subfolder="ss-kcp-udp-dual2raw")
 
 
 def ss_kcptun_udpspeeder_udp2raw(server_num=0, client_offset=0, suffix=""):
@@ -516,10 +521,12 @@ def ss_kcptun_udpspeeder_udp2raw(server_num=0, client_offset=0, suffix=""):
     print(f"客户端本地映射SS端口：{client_ss_port + client_offset}\n"
           f"SOCKS5端口：{client_socks5_port + client_offset}")
     print("密码为：" + PASSWD)
-    print(f"{BBR_DESCRIPTION + '加速' if BBR_MODULE else ''} 直连服务端SS：")
+    print(f"{BBR_DESCRIPTION + '加速' if BBR_MODULE else ''}直连服务端SS：")
     getURI(server_host, server_ss_port + server_num, f"{BBR_DESCRIPTION} 直连")
     print(f"通过{CRED}{relay_host}{CEND}的 Kcptun + UDPspeeder 的监听端口连接SS：")
     getURI(relay_host, client_ss_port + client_offset, '单udp2raw')
+    write_compose_file(server_cmd, subfolder="ss-kcp-udp-udp2raw")
+    write_compose_file(client_cmd, subfolder="ss-kcp-udp-udp2raw")
 
 
 # 在丢包率为P的情况下，n个包中至少到达m个的概率
@@ -556,6 +563,77 @@ def calc_fec_param(target_loss, origin_loss, num=20):
                 map[y] = x
                 break
     return str + ",".join(f"{map[k]}:{k}" for k in sorted(map.keys()))
+
+
+# 转换为docker-compose
+
+def search(command, arg):
+    regex = "^[ ]*[-]+" + arg + '[\s="]+([^\n\\\\"]+)[ ]*'
+    if re.findall(regex, command, flags=re.MULTILINE).__len__() > 0:
+        value = '"' + re.search(re.compile(regex, re.MULTILINE), command, ).group(1).strip() + '"'
+        return value
+    return ""
+
+
+def search_ports(command):
+    ports = ""
+    for p in re.findall("^[ ]*-p (\S+)", command, flags=re.MULTILINE):
+        ports += "\n        - " + p
+    return ports
+
+
+def search_env(command):
+    env = ""
+    map = {
+        "SS_MODULE": "s",
+        "SS_CONFIG": "S",
+        "KCP_MODULE": "k",
+        "KCP_CONFIG": "K",
+        "UDPSPEEDER_CONFIG": "u",
+        "UDP2RAW_CONFIG_ONE": "t",
+        "UDP2RAW_CONFIG_TWO": "T",
+        "BBR_MODULE": "b",
+        "BBR_CONFIG": "B",
+        "TINY_MAPPER_CONFIG_ONE": "m",
+        "TINY_MAPPER_CONFIG_TWO": 'M',
+    }
+    for cmd_name, cmd_key in map.items():
+        cmd = search(command, cmd_key)
+        if cmd:
+            env += f"\n        {cmd_name}: {cmd}"
+    return env
+
+
+def get_docker_compose(command):
+    docker_compose_template = f'''version: '3.7'
+services:
+  shadowsocks:
+    cap_add:
+      - NET_ADMIN
+    image: sola97/shadowsocks
+    container_name: {search(command, "name")}
+    restart: always
+    network_mode: {search(command, "network")}
+    ports:{search_ports(command)}
+    environment:{search_env(command)}
+    logging:
+      driver: "json-file"
+      options:
+        max-size: "10m"
+        max-file: "3"
+    '''
+    return docker_compose_template
+
+
+def write_compose_file(command, subfolder=""):
+    path = "docker-compose/"+subfolder+"/"
+    if not os.path.exists(path):
+        os.makedirs(path)
+    file_name = path + search(command, "name").strip('"') + ".yml"
+    file_content = get_docker_compose(command)
+    with open(file_name, mode='w', encoding='utf-8') as f:
+        f.write(file_content)
+    print(f"{CGREEN}已写入docker-compose文件：" + file_name)
 
 
 if __name__ == '__main__':

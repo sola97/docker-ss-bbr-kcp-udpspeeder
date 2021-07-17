@@ -288,6 +288,10 @@ docker run -dt --name ss -p 6443:6443 -p 6500:6500/udp -e SS_CONFIG="-s 0.0.0.0 
 
 
 **更新日志**
+- 2021-07-18
+
+更新generate.py，自动在docker-compose文件夹下生成yml文件
+
 - 2020-09-17
 
 更新generate.py，设置服务端为--network=host，用于支持Full cone NAT
