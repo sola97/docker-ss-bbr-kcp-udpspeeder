@@ -576,10 +576,13 @@ def search(command, arg):
 
 
 def search_ports(command):
-    ports = ""
-    for p in re.findall("^[ ]*-p (\S+)", command, flags=re.MULTILINE):
-        ports += "\n        - " + p
-    return ports
+    if search(command, "network") == '"host"':
+        return ""
+    else:
+        ports = "\n    ports:"
+        for p in re.findall("^[ ]*-p (\S+)", command, flags=re.MULTILINE):
+            ports += "\n        - " + p
+        return ports
 
 
 def search_env(command):
@@ -613,8 +616,7 @@ services:
     image: sola97/shadowsocks
     container_name: {search(command, "name")}
     restart: always
-    network_mode: {search(command, "network")}
-    ports:{search_ports(command)}
+    network_mode: {search(command, "network")}{search_ports(command)}
     environment:{search_env(command)}
     logging:
       driver: "json-file"
