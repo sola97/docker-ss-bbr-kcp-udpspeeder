@@ -28,11 +28,21 @@ jobs:
               const cutoff = now - 7 * 24 * 60 * 60 * 1000;
               const runs = new Map();
               const completed = [];
+              const artifactSources = {};
               for (const artifact of artifacts) {
                 if (artifact.expired || !artifact.workflow_run) continue;
                 const runId = artifact.workflow_run.id;
                 if (!runs.has(runId)) runs.set(runId, await getRun(runId));
                 if (runs.get(runId).status !== 'completed') continue;
+                if (runs.get(runId).path === '.github/workflows/artifact-retention.yml') {
+                  const match = /^latest-run-(\d+)-(\d+)-(\d+)$/.exec(artifact.name);
+                  if (match) {
+                    const sourceId = Number(match[1]);
+                    if (!runs.has(sourceId)) runs.set(sourceId, await getRun(sourceId));
+                    if (runs.get(sourceId).status !== 'completed') continue;
+                    artifactSources[artifact.id] = sourceId;
+                  }
+                }
                 completed.push(artifact);
               }
               const eligible = completed.filter((artifact) =>
@@ -45,7 +55,7 @@ jobs:
                 const match = fromRetentionWorkflow ? /^latest-run-(\d+)-(\d+)-(\d+)$/.exec(artifact.name) : null;
                 const sourceId = match ? Number(match[1]) : artifact.workflow_run.id;
                 const created = match ? Number(match[2]) : Date.parse(runs.get(sourceId).created_at);
-                if (created <= cutoff) continue;
+                // Artifact age controls retention; rerunning an older workflow creates fresh artifacts.
                 const attempt = match ? Number(match[3]) : runs.get(sourceId).run_attempt;
                 const key = `${sourceId}:${attempt}`;
                 if (!groups.has(key)) groups.set(key, { sourceId, created, attempt, artifacts: [] });
@@ -56,7 +66,7 @@ jobs:
                 groups.get(b).sourceId - groups.get(a).sourceId || groups.get(b).attempt - groups.get(a).attempt
               );
               const runAttempts = Object.fromEntries([...runs].map(([id, run]) => [id, run.run_attempt]));
-              if (keys.length === 0) return { sourceId: null, sources: [], keepId: null, completed, runAttempts };
+              if (keys.length === 0) return { sourceId: null, sources: [], keepId: null, completed, runAttempts, artifactSources };
               const group = groups.get(keys[0]);
               const { sourceId, attempt: sourceAttempt, created: sourceCreated } = group;
               const sources = [...group.artifacts];
@@ -75,7 +85,7 @@ jobs:
               const single = bundle || (sources.length === 1 ? sources[0] : null);
               const expiresWithinSevenDays = single &&
                 Date.parse(single.expires_at) <= Date.parse(single.created_at) + 7 * 24 * 60 * 60 * 1000 + 60000;
-              return { sourceId, sourceCreated, sourceAttempt, bundleName, sources, keepId: expiresWithinSevenDays ? single.id : null, completed, runAttempts };
+              return { sourceId, sourceCreated, sourceAttempt, bundleName, sources, keepId: expiresWithinSevenDays ? single.id : null, completed, runAttempts, artifactSources };
             }
             const fs = require('node:fs');
             const path = require('node:path');
@@ -169,6 +179,14 @@ jobs:
               if (!runStates.get(runId)) {
                 core.info(`Preserved artifacts of active or rerun workflow ${runId}`);
                 continue;
+              }
+              const sourceId = plan.artifactSources[artifact.id];
+              if (sourceId) {
+                const source = (await github.rest.actions.getWorkflowRun({ owner, repo, run_id: sourceId })).data;
+                if (source.status !== 'completed' || source.run_attempt !== plan.runAttempts[sourceId]) {
+                  core.info(`Preserved retained bundle needed by active or rerun source ${sourceId}`);
+                  continue;
+                }
               }
               await github.rest.actions.deleteArtifact({ owner, repo, artifact_id: artifact.id });
               core.info(`Deleted ${artifact.name} (${artifact.id})`);
