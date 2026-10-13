@@ -59,7 +59,16 @@ jobs:
               if (keys.length === 0) return { sourceId: null, sources: [], keepId: null, completed, runAttempts };
               const group = groups.get(keys[0]);
               const { sourceId, attempt: sourceAttempt, created: sourceCreated } = group;
-              const sources = group.artifacts;
+              const sources = [...group.artifacts];
+              const currentBundle = sources.find((artifact) => artifact.name === `latest-run-${sourceId}-${sourceCreated}-${sourceAttempt}`);
+              // Failed matrix jobs can rerun alone: merge previous successful outputs with new outputs.
+              if (!currentBundle) {
+                for (const older of groups.values()) {
+                  if (older.sourceId !== sourceId || older.attempt >= sourceAttempt) continue;
+                  const previous = older.artifacts.find((artifact) => artifact.name === `latest-run-${sourceId}-${sourceCreated}-${older.attempt}`);
+                  if (previous) sources.push(previous);
+                }
+              }
               const bundleName = `latest-run-${sourceId}-${sourceCreated}-${sourceAttempt}`;
               const bundle = sources.find((artifact) => artifact.name === bundleName);
               // A valid existing bundle or single original artifact needs no extra upload.
@@ -85,12 +94,43 @@ jobs:
             core.setOutput('bundle-path', root);
             if (plan.sources.length === 0 || plan.keepId) return;
             fs.mkdirSync(root, { recursive: true });
-            const manifest = { sourceRunId: plan.sourceId, sourceCreatedAt: plan.sourceCreated, artifacts: [] };
-            for (const artifact of plan.sources) {
+            const manifest = { sourceRunId: plan.sourceId, sourceCreatedAt: plan.sourceCreated, sourceAttempt: plan.sourceAttempt, artifacts: [] };
+            const filesByName = new Map();
+            const previousBundles = plan.sources.filter((artifact) => /^latest-run-\d+-\d+-\d+$/.test(artifact.name));
+            const originals = plan.sources.filter((artifact) => !previousBundles.includes(artifact));
+            previousBundles.sort((a, b) => Date.parse(a.created_at) - Date.parse(b.created_at));
+            for (const artifact of previousBundles) {
+              const run = (await github.rest.actions.getWorkflowRun({ owner, repo, run_id: artifact.workflow_run.id })).data;
+              if (run.path !== '.github/workflows/artifact-retention.yml') {
+                originals.push(artifact);
+                continue;
+              }
+              const archive = await github.rest.actions.downloadArtifact({ owner, repo, artifact_id: artifact.id, archive_format: 'zip' });
+              const archivePath = path.join(process.env.RUNNER_TEMP, `previous-${artifact.id}.zip`);
+              fs.writeFileSync(archivePath, Buffer.from(archive.data));
+              const output = await exec.getExecOutput('unzip', ['-p', archivePath, 'manifest.json'], { silent: true });
+              const previous = JSON.parse(output.stdout);
+              if (previous.sourceRunId !== plan.sourceId) throw new Error('Previous bundle source mismatch');
+              for (const item of previous.artifacts) {
+                if (!/^\d+\.zip$/.test(item.filename)) throw new Error('Invalid original archive filename');
+                const destination = path.join(root, item.filename);
+                const fd = fs.openSync(destination, 'w');
+                try {
+                  await exec.exec('unzip', ['-p', archivePath, item.filename], { silent: true, listeners: { stdout: (data) => fs.writeSync(fd, data) } });
+                } finally { fs.closeSync(fd); }
+                filesByName.set(item.name, item);
+              }
+            }
+            for (const artifact of originals) {
               const archive = await github.rest.actions.downloadArtifact({ owner, repo, artifact_id: artifact.id, archive_format: 'zip' });
               const filename = `${artifact.id}.zip`;
               fs.writeFileSync(path.join(root, filename), Buffer.from(archive.data));
-              manifest.artifacts.push({ id: artifact.id, name: artifact.name, filename, createdAt: artifact.created_at });
+              filesByName.set(artifact.name, { id: artifact.id, name: artifact.name, filename, createdAt: artifact.created_at });
+            }
+            manifest.artifacts = [...filesByName.values()];
+            const filenames = new Set(manifest.artifacts.map((item) => item.filename));
+            for (const filename of fs.readdirSync(root)) {
+              if (!filenames.has(filename)) fs.unlinkSync(path.join(root, filename));
             }
             // Keep original ZIPs intact: untrusted artifacts are never extracted or executed.
             fs.writeFileSync(path.join(root, 'manifest.json'), JSON.stringify(manifest, null, 2));
